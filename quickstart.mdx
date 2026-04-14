@@ -1,80 +1,103 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: "Quickstart: Take the Quiz or Run ACGTI Locally"
+description: "Get your anime character result in under five minutes, or spin up a local dev server with Vue 3, Vite, and Tailwind CSS to contribute to ACGTI."
 ---
 
-## Get started in three steps
+You can use ACGTI in two ways: visit the live site and take the quiz immediately, or clone the repository and run it locally to develop, test, or contribute. Both paths are covered below.
 
-Get your documentation site running locally and make your first customization.
+## Take the quiz online
 
-### Step 1: Set up your local environment
+<Steps>
+  <Step title="Open the site">
+    Go to [acgti.tianxingleo.top](https://acgti.tianxingleo.top/). No account or sign-up required.
+  </Step>
+  <Step title="Read the introduction and start">
+    The intro page explains the quiz format — 39 scenario questions on a seven-point scale. When you are ready, press the start button to begin.
+  </Step>
+  <Step title="Answer all 39 questions">
+    Each question presents a scenario. Drag the slider or tap a point on the scale from −3 to +3 to record how much you agree or disagree with the scenario. You can go back and change any answer before submitting. A progress bar at the top shows how far along you are.
+  </Step>
+  <Step title="Get your result">
+    After answering all questions, your result page shows your character code, the matched archetype, four dimension sliders (Energy, Mind, Nature, Tactics), and a short character profile. Up to three runner-up characters are also shown.
+  </Step>
+  <Step title="Export and share">
+    Tap the share/export button to download your result as a PNG poster. Send it to friends or post it anywhere — the image contains your character code, archetype, and dimension bars.
+  </Step>
+</Steps>
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+## Run ACGTI locally
 
-### Step 2: Deploy your changes
+ACGTI is a pure-frontend app built with **Vue 3**, **TypeScript**, **Vite**, and **Tailwind CSS**. There is no backend to configure.
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+### Prerequisites
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+- Node.js 18 or later
+- npm (comes with Node.js)
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+### Install and start the dev server
 
-### Step 3: Go live
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/tianxingleo/ACGTI.git
+    cd ACGTI
+    ```
+  </Step>
+  <Step title="Install dependencies">
+    ```bash
+    npm install
+    ```
+  </Step>
+  <Step title="Start the development server">
+    ```bash
+    npm run dev
+    ```
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+    Vite will print a local URL (typically `http://localhost:5173`). Open it in your browser to see the app with hot-module replacement enabled.
+  </Step>
+</Steps>
 
-## Next steps
+### Build for production
 
-Now that you have your docs running, explore these key features:
+```bash
+npm run build
+```
 
-<CardGroup cols={2}>
+The compiled output is written to `dist/`. The Vite config sets `base: './'`, so all asset paths are relative — the `dist/` folder can be dropped into any static host without further configuration.
 
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
+### Deploy to Cloudflare Pages
 
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
+ACGTI's official deployment runs on Cloudflare Pages. To deploy your own fork:
 
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
+<Steps>
+  <Step title="Push to GitHub">
+    Make sure your fork is pushed to a GitHub repository.
+  </Step>
+  <Step title="Connect to Cloudflare Pages">
+    In the Cloudflare dashboard, create a new Pages project and connect it to your GitHub repository.
+  </Step>
+  <Step title="Configure build settings">
+    Set the build command to `npm run build` and the output directory to `dist`. Cloudflare Pages will build and deploy automatically on every push to `main`.
+  </Step>
+</Steps>
 
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
+<Tip>
+  The repository also includes a GitHub Actions workflow that runs `npm ci` and `npm run build` on every push to `main` or `dev` and on all pull requests. This catches build errors before they reach production. Tags matching `v*` trigger an automated GitHub Release that packages `dist/` as a zip file.
+</Tip>
 
-</CardGroup>
+## Tech stack summary
+
+| Layer | Technology |
+| --- | --- |
+| UI framework | Vue 3 (Composition API) |
+| Language | TypeScript |
+| Build tool | Vite |
+| Styling | Tailwind CSS |
+| Routing | Vue Router (hash history) |
+| Hosting | Cloudflare Pages |
+| State | Vue composables (`useQuiz.ts`) |
+| Persistence | `localStorage` (last result only) |
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  All quiz data — questions, archetypes, and characters — is shipped as static JSON files under `src/data/`. The scoring engine (`src/utils/quizEngine.ts`) loads them lazily on first use via dynamic imports, keeping the initial bundle small.
 </Note>

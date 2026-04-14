@@ -1,0 +1,114 @@
+---
+title: "ACGTI Source Code Layout and Key Files Explained"
+description: "A guided tour of the ACGTI src/ directory — what each file does, how the pages, composables, and utils layer interact, and how data flows from JSON to a rendered result."
+---
+
+ACGTI is a single-page application built with Vue 3, TypeScript, and Vite. All computation runs in the browser — there is no server-side code. Understanding where each piece lives helps you make targeted changes without breaking the data pipeline that drives quiz scoring, character matching, and result rendering.
+
+## Directory tree
+
+```text
+src/
+├── components/           # Reusable UI components
+├── composables/          # Vue composition functions
+├── data/                 # Static JSON data files
+├── i18n/                 # Internationalization
+├── pages/                # Page-level Vue components
+├── router/               # Vue Router configuration
+├── types/                # TypeScript type definitions
+├── utils/                # Scoring engine and data helpers
+├── App.vue               # Root component
+├── main.ts               # Application entry point
+└── style.css             # Global styles
+```
+
+## Pages
+
+Each page in `src/pages/` corresponds to a route defined in `src/router/index.ts`.
+
+<CardGroup cols={2}>
+  <Card title="HomePage.vue" icon="house">
+    Landing page with the quiz entry call-to-action and character gallery preview.
+  </Card>
+  <Card title="IntroPage.vue" icon="circle-info">
+    Quiz introduction and instructions shown before the first question.
+  </Card>
+  <Card title="QuizPage.vue" icon="list-check">
+    Renders all 39 questions on a single scrollable page. Reads and updates state through `useQuiz.ts`.
+  </Card>
+  <Card title="ResultPage.vue" icon="chart-bar">
+    Displays the matched character, dimension sliders, archetype description, and share button.
+  </Card>
+  <Card title="CharactersPage.vue" icon="address-book">
+    Gallery of all characters with thumbnail cards. Regular and hidden characters are displayed in separate ordered lists.
+  </Card>
+  <Card title="AboutPage.vue" icon="circle-question">
+    Project background, credits, and disclaimer.
+  </Card>
+</CardGroup>
+
+## Components
+
+`src/components/` holds reusable UI pieces shared across pages:
+
+| File | Purpose |
+| :--- | :------ |
+| `AppIcon.vue` | Wrapper for icon rendering |
+| `ProgressBar.vue` | Visual progress indicator during the quiz |
+| `QuestionCard.vue` | Renders a single question with a 7-point Likert scale |
+| `ResultSummary.vue` | Compact dimension-score display on the result page |
+| `SharePoster.vue` | Hidden DOM node used by `useShare.ts` to render the PNG export |
+| `AdsenseSlot.vue` | Google AdSense slot wrapper |
+
+## Composables
+
+`src/composables/` contains Vue composition functions that encapsulate stateful logic.
+
+**`useQuiz.ts`** — the central state manager for an active quiz session. It tracks the current question index, stores raw answer values, triggers scoring when the quiz completes, and exposes the final `CharacterMatch` result to `QuizPage` and `ResultPage`.
+
+**`useShare.ts`** — handles PNG poster export. It uses `html-to-image` to capture the `SharePoster` component and triggers a browser download or share-sheet on mobile.
+
+## Utils
+
+`src/utils/` contains the pure business-logic layer. These modules have no Vue dependencies and can be reasoned about independently.
+
+**`quizEngine.ts`** — the core scoring engine. It aggregates weighted answers across the four MBTI dimensions (E/I, S/N, T/F, J/P), maps the resulting dimension profile to one of the 8 archetypes via `TYPE_TO_ARCHETYPE`, then ranks all characters against the user's dimension scores and archetype to produce the final `CharacterMatch`.
+
+**`characterVisuals.ts`** — hydrates raw character data from `characters.json` with visual configuration from `characterVisuals.json` (full-size image path, thumbnail path, accent color). Pages consume the enriched object rather than querying both sources separately.
+
+**`characterProbability.ts`** — reads hit-rate probabilities from `characterProbabilities.json` and exposes a lookup function. The result page uses this to display "X% of test-takers match this character."
+
+**`storage.ts`** — thin wrappers around `localStorage` for persisting quiz state between page refreshes.
+
+## Data files
+
+All content is stored as static JSON in `src/data/`. Nothing is fetched at runtime.
+
+| File | Contents |
+| :--- | :------- |
+| `questions.json` | 39 scenario-based questions — dimension, sign, archetype weights |
+| `archetypes.json` | 8 archetype definitions — name, description, strengths, weaknesses |
+| `characters.json` | 42 character entries — code, MBTI match, archetype, tags, note, six-axis vector |
+| `characterVisuals.json` | Per-character visual config — full image path, thumbnail path, accent color |
+| `characterProbabilities.json` | Per-character hit-rate percentages, generated by the probability simulation script |
+
+<Note>
+  `characterProbabilities.json` is generated by `scripts/probability-simulation.mjs`, not edited by hand. Re-run this script whenever you add or remove characters.
+</Note>
+
+## i18n
+
+`src/i18n/characters.ts` provides localized character names and series names for all four supported locales: `zh-CN`, `zh-TW`, `en`, and `ja`. The `getLocalizedCharacterName` and `getLocalizedCharacterSeries` functions are called by any component that renders character identity.
+
+`src/types/quiz.ts` defines the core domain types (`Question`, `CharacterMatch`, `Archetype`, and related interfaces) consumed across the entire codebase. `src/i18n/types.ts` defines `AppLocale` and the `SUPPORTED_LOCALES` constant.
+
+## Data flow overview
+
+The runtime pipeline goes from static JSON to a rendered result in five steps:
+
+1. `questions.json` is loaded and rendered by `QuizPage` via `useQuiz.ts`
+2. User answers feed into `quizEngine.ts`, which computes dimension scores and archetype
+3. `quizEngine.ts` ranks all entries from `characters.json` and returns the top `CharacterMatch`
+4. `characterVisuals.ts` enriches the match with image paths and accent color from `characterVisuals.json`
+5. `characterProbability.ts` attaches the hit-rate percentage from `characterProbabilities.json`
+6. `ResultPage.vue` renders the enriched match; `useShare.ts` can export it as a PNG

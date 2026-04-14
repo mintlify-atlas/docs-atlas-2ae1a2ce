@@ -1,0 +1,118 @@
+---
+title: "Quiz Experience: 39-Question ACG Persona Assessment"
+description: "Learn how the ACGTI quiz works — scenario-based questions, a 7-point Likert scale, localStorage progress saving, and smart navigation to your result."
+---
+
+The ACGTI quiz walks you through 39 scenario-based questions designed to surface your ACG persona type. Each question presents a real-world or fictional situation and asks you to rate how strongly you agree or disagree with a statement about it. When all questions are answered, the engine calculates your MBTI-inspired character code and surfaces your best-matched anime character.
+
+## How the quiz is structured
+
+The quiz sits at the end of a short onboarding flow:
+
+<Steps>
+  <Step title="Home page">
+    The landing page introduces the ACGTI project and invites you to start.
+  </Step>
+  <Step title="Intro page">
+    A brief orientation screen explains what the quiz measures and what to expect.
+  </Step>
+  <Step title="Quiz page">
+    All 39 questions are presented on a single scrollable page. Answer them at your own pace.
+  </Step>
+  <Step title="Result page">
+    After submitting, your character code, MBTI type, archetype, and matched characters are revealed.
+  </Step>
+</Steps>
+
+## Answering questions
+
+Every question uses a 7-point Likert scale ranging from **−3** (strongly disagree) to **+3** (strongly agree), with **0** as neutral. The scale is rendered as seven circular buttons that grow in size toward each pole, giving you an at-a-glance sense of intensity.
+
+| Value | Meaning |
+|------:|---------|
+| +3 | Strongly agree |
+| +2 | Agree |
+| +1 | Slightly agree |
+| 0 | Neutral |
+| −1 | Slightly disagree |
+| −2 | Disagree |
+| −3 | Strongly disagree |
+
+Agree-side buttons are teal (`#33a474`); disagree-side buttons are purple (`#88619a`). Selecting a button triggers a short pop animation and fills the circle with the corresponding color.
+
+<Tip>
+Questions that come after your first unanswered question are dimmed until you reach them. Hovering any dimmed question restores full opacity so you can jump ahead if needed.
+</Tip>
+
+## Progress tracking
+
+A progress hint near the submit button shows exactly how many questions you have answered out of the total 39 — for example, "12 / 39 answered". The quiz can only be finalized once **all 39 questions** have a response. Clicking "Submit" before that causes the page to scroll automatically to the first unanswered question and highlight it with a green left-border accent.
+
+## Saving and resuming
+
+Your answers are persisted to `localStorage` as you go. If you close the tab, refresh, or navigate away mid-quiz, your progress is restored the next time you visit the quiz page. No account or login is required.
+
+<Info>
+The stored answers are keyed to this browser and device only. Clearing browser storage or switching devices will start the quiz fresh.
+</Info>
+
+## Navigation
+
+Because all 39 questions live on a single page, navigation is primarily scroll-based. The `useQuiz` composable tracks the following reactive values that the UI relies on:
+
+<AccordionGroup>
+  <Accordion title="state">
+    A readonly reactive object holding `currentIndex` (the focused question number) and `answers` (the full array of −10-to-+3 values, where −10 means unanswered).
+  </Accordion>
+  <Accordion title="currentQuestion">
+    The `Question` object for whichever question is currently in focus.
+  </Accordion>
+  <Accordion title="progress">
+    A `0`–`1` float representing how far through the question list you are: `(currentIndex + 1) / total`.
+  </Accordion>
+  <Accordion title="canGoNext / canGoPrev">
+    Booleans that gate sequential navigation. `canGoNext` is `true` only when the current question has a valid answer (−3 to +3).
+  </Accordion>
+  <Accordion title="answeredCount">
+    The number of questions that have been given a valid response so far.
+  </Accordion>
+  <Accordion title="firstUnansweredIndex">
+    The zero-based index of the first question without a valid answer, or `−1` if all are answered. Used by the submit handler to scroll to the blocking question.
+  </Accordion>
+</AccordionGroup>
+
+## Submitting and scoring
+
+When `answeredCount` equals 39 (i.e., `isComplete` is `true`), clicking **Submit** calls `finalizeQuiz()`. This function:
+
+1. Runs `calculateQuizResult()` from `src/utils/quizEngine.ts` against all 39 answers.
+2. Saves the resulting `QuizRecord` (answers + timestamp + result) to `localStorage`.
+3. Navigates the router to `/result`.
+
+```typescript
+// src/composables/useQuiz.ts
+function finalizeQuiz(): QuizResult | null {
+  if (!isComplete.value) return null
+
+  const result = calculateQuizResult({
+    answers: state.answers,
+    questions: questions.value,
+    archetypes: archetypes.value,
+    characters: characters.value,
+  })
+
+  const record: QuizRecord = {
+    answers: [...state.answers],
+    createdAt: new Date().toISOString(),
+    result,
+  }
+
+  state.latestRecord = hydrateQuizRecord(record)
+  saveLastRecord(record)
+  return result
+}
+```
+
+<Note>
+Quiz data (questions, archetypes, characters) is loaded lazily via `ensureData()` when the quiz page mounts. This keeps the initial bundle small.
+</Note>

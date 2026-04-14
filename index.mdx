@@ -1,97 +1,67 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "ACGTI: MBTI-inspired anime persona quiz"
+description: "ACGTI is an MBTI-inspired anime persona quiz that matches you to one of 42 characters across 8 archetypes. Runs entirely in your browser — no sign-up, no data collection."
 ---
 
-## Setting up
+ACGTI (ACG Type Indicator) is a free, privacy-first personality quiz inspired by MBTI. Answer 39 scenario-based questions and discover which anime character archetype you embody — from VOCALOID to Genshin Impact, spanning 42 characters across 8 unique archetypes. Everything runs in your browser: no backend, no registration, no data collection.
 
-Get your documentation site up and running in minutes.
-
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Take the quiz" icon="wand-magic-sparkles" href="https://acgti.tianxingleo.top/">
+    Experience ACGTI live — answer 39 questions and discover your anime character match
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="How it works" icon="gears" href="/how-it-works">
+    Understand the scoring engine, MBTI mapping, and character-matching algorithm
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Archetypes & characters" icon="users" href="/archetypes/overview">
+    Explore all 8 personality archetypes and the 42-character library behind them
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="Contribute a character" icon="code-pull-request" href="/contributing/add-character">
+    Add new characters, questions, or translations to the open-source project
   </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## What is ACGTI?
 
-Everything you need to create world-class documentation.
+ACGTI maps your answers through four MBTI dimensions (E/I, S/N, T/F, J/P) into one of **8 ACG personality archetypes**, then narrows the result down to a single character from a curated library of 42 characters. Results include interactive trait sliders, a character code, and a shareable PNG poster.
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+<Steps>
+  <Step title="Answer 39 questions">
+    Each question presents a real scenario. Respond on a 7-point scale from strong agreement to strong disagreement. There are no right or wrong answers.
+  </Step>
+  <Step title="Get your archetype">
+    The scoring engine calculates your position across four MBTI dimensions and maps you to one of 8 anime personality archetypes — from Luminous Lead to Shadow Strategist.
+  </Step>
+  <Step title="Meet your character match">
+    A vector-similarity algorithm identifies the single character from the library who best mirrors your unique dimension profile and archetype tendencies.
+  </Step>
+  <Step title="Share your result">
+    Export a beautifully designed PNG poster and share your character code with friends.
+  </Step>
+</Steps>
 
-## Need inspiration?
+## Key features
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+<CardGroup cols={2}>
+  <Card title="8 personality archetypes" icon="layer-group" href="/archetypes/overview">
+    Luminous Lead, Icebound Observer, Oathbound Captain, Trickster Orbit, Gentle Healer, Shadow Strategist, Chaos Spark, and Moonlit Guardian
+  </Card>
+  <Card title="42-character library" icon="address-book" href="/archetypes/overview">
+    Characters from VOCALOID, EVA, Detective Conan, Touhou, MyGO, Genshin Impact, and more — including 2 hidden characters
+  </Card>
+  <Card title="Trait sliders" icon="sliders" href="/features/result-page">
+    16personalities-style interactive sliders show your exact percentage leaning on each of the four MBTI dimensions
+  </Card>
+  <Card title="One-click share" icon="share-nodes" href="/features/share-poster">
+    Export a styled PNG poster with your character, archetype, and dimension scores — ready to share anywhere
+  </Card>
+  <Card title="Fully private" icon="shield-halved" href="/how-it-works">
+    Zero backend, zero tracking. All computation happens locally in your browser. No account required.
+  </Card>
+  <Card title="Multilingual" icon="language" href="/features/i18n">
+    Full support for Simplified Chinese, Traditional Chinese, English, and Japanese
+  </Card>
+</CardGroup>
+
+<Note>
+  ACGTI is for entertainment only. Results are not a psychological diagnosis, medical assessment, or professional personality evaluation.
+</Note>

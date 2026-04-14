@@ -1,0 +1,93 @@
+---
+title: "Result Page: Your Character Code and Anime Persona Profile"
+description: "Explore the ACGTI result page — character code, MBTI type, interactive trait sliders, archetype analysis, up to four character matches, and match scoring."
+---
+
+After you submit the quiz, ACGTI calculates a profile across four personality dimensions and finds the anime character whose trait vector most closely matches yours. The result page presents this match in a richly themed layout that adapts its color scheme to the character's accent color, giving each result its own distinct visual identity.
+
+## Hero section
+
+The top of the result page displays the most important information at a glance:
+
+<CardGroup cols={2}>
+  <Card title="Character name" icon="user">
+    The name of your top-matched anime character, rendered in large type. Hidden characters display a special badge instead of their real name until revealed.
+  </Card>
+  <Card title="Character code" icon="hash">
+    A short alphanumeric identifier unique to your character match (e.g., `ARIS-7`). Share this code with others so they can look up your result directly.
+  </Card>
+  <Card title="MBTI type" icon="grid-2x2">
+    Your four-letter MBTI type code (e.g., `INFJ`) derived from your dimension scores.
+  </Card>
+  <Card title="Archetype" icon="sparkles">
+    The narrative archetype that best fits your answer profile — one of eight archetypes such as *Luminous Lead*, *Shadow Strategist*, or *Chaos Spark*.
+  </Card>
+</CardGroup>
+
+The hero section also shows two metric cards:
+
+- **Rarity** — a gacha-inspired tier label (UR, SSR, SR, or R) derived from how rare your matched character is, with a summary description of that tier's rank range.
+- **Match score** — a percentage between 60 and 99 representing how closely your quiz profile aligns with the top character, followed by a population probability that estimates what share of test-takers share this result.
+
+The hero background color is the character's `accent` hex color. Text on the button and export elements automatically switches between white and dark (`#111827`) based on WCAG contrast calculations so it remains readable against any accent.
+
+## Interactive trait sliders
+
+Below the hero, a card displays your four personality dimension scores as 16personalities-style sliders. Each slider shows a colored track with a handle positioned to reflect the balance between the two poles.
+
+| Dimension key | Label | Left letter | Left label | Right letter | Right label | Color |
+|---|---|---|---|---|---|---|
+| `E_I` | Energy | E | Extraverted | I | Introverted | `#4298B4` |
+| `S_N` | Mind | S | Intuitive | N | Observant | `#E4AE3A` |
+| `T_F` | Nature | T | Thinking | F | Feeling | `#33A474` |
+| `J_P` | Tactics | J | Judging | P | Prospecting | `#88619A` |
+
+<Note>
+These colors come from `ResultPage.vue` and differ from the `TRAIT_CONFIG` palette in `quizEngine.ts` (which uses `#9b59b6`, `#3498db`, `#e74c3c`, `#f39c12`). ACGTI uses two different color sets for UI sliders and the export poster respectively. The S/N dimension labels use ACGTI's own naming: Intuitive maps to the S letter position, Observant to N.
+</Note>
+
+Above each track, a floating label shows the dominant letter and its percentage — for example, "73% Introverted". The percentage is calculated as `50 + (intensity × 50)`, so a perfectly neutral answer gives 50% and an extreme response gives up to 100%.
+
+A highlighted aside next to the sliders calls out your **strongest trait** — the dimension with the highest deviation from 50% — along with a short explanatory sentence.
+
+## Archetype analysis
+
+Two analysis cards appear below the sliders:
+
+- **Spotlight** — describes where your archetype tends to shine in social or creative situations.
+- **Weakness** — identifies the characteristic blind spots or friction points of your archetype.
+
+Both cards pull their text from the `archetypes` dataset and are fully localized.
+
+## Character profile and matches
+
+The result page shows up to four character matches drawn from the `topCharacterMatches` array. The **primary match** (index 0) is featured prominently in the hero with a full character image. Up to two **secondary matches** (indices 1–2) appear in a card grid below the analysis section, each showing:
+
+- Character name and series
+- A "High-match candidate" label
+- Character code
+- Match score percentage
+- The character's descriptive note
+
+Clicking a secondary match card navigates to `/result?character=<id>` and scrolls to the top, letting you explore alternate results without retaking the quiz.
+
+<Info>
+Match scores use a composite formula weighted across four components: MBTI alignment (25%), archetype score (35%), personality vector cosine similarity (30%), and character-specific signature axes (10%). The final score is mapped to the 60–99 range.
+</Info>
+
+## Sidebar
+
+A sticky sidebar (on viewports wider than 960 px) provides quick access to:
+
+- **Profile card** — character name, code, rarity tier, probability, and descriptive tags.
+- **Table of contents** — jump links to the Traits, Analysis, and Similar Characters sections.
+- **Action buttons** — copy share text to clipboard, or export a PNG poster.
+- **Relay card** — prompt encouraging you to share your result code with friends.
+
+## Saving and resuming your result
+
+The `QuizRecord` (your answers plus the computed `QuizResult`) is written to `localStorage` immediately after `finalizeQuiz()` completes. When you return to `/result`, `resumeLastResult()` rehydrates that record so your result is shown without retaking the quiz.
+
+<Warning>
+Calling `resetQuiz()` with `clearHistory = true` permanently removes the saved record from `localStorage`. The quiz footer includes a "Retake" button that invokes this reset.
+</Warning>

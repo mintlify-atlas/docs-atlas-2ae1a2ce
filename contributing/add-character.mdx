@@ -1,0 +1,254 @@
+---
+title: "How to Add a New Character to the ACGTI Library"
+description: "Step-by-step guide: define MBTI and archetype, add JSON data, prepare WebP images, update visuals and i18n, then re-run probability simulation."
+---
+
+Adding a character to ACGTI is not a single-file edit. A character exists across six locations — data, visuals, images, probabilities, and i18n — and all six must be consistent before the addition is considered complete. This guide walks through every step in the recommended order to avoid broken references mid-way.
+
+<Warning>
+  A character with missing images, no i18n entries, or skipped probability re-generation is not considered fully integrated. Do not open a pull request until all steps below are complete.
+</Warning>
+
+## Before you begin
+
+A character in ACGTI is identified by a single `id` string that must match across every file. Decide the `id` before touching any file and use it consistently throughout.
+
+The `id` must be:
+- Globally unique across the repository
+- Lowercase kebab-case (e.g., `kaname-madoka`, `hatsune-miku`)
+
+## Valid archetype IDs
+
+The `archetypeId` field must be exactly one of these eight values:
+
+| ID | Archetype name |
+| :- | :------------- |
+| `luminous-lead` | 发光主角位 (Luminous Lead) |
+| `icebound-observer` | 冰面观察者 (Icebound Observer) |
+| `oathbound-captain` | 誓约队长 (Oathbound Captain) |
+| `trickster-orbit` | 灵巧回旋者 (Trickster Orbit) |
+| `gentle-healer` | 温柔修复者 (Gentle Healer) |
+| `shadow-strategist` | 影面策士 (Shadow Strategist) |
+| `chaos-spark` | 混沌火花 (Chaos Spark) |
+| `moonlit-guardian` | 月下守护者 (Moonlit Guardian) |
+
+You can cross-reference the mapping between MBTI types and archetypes in `src/utils/quizEngine.ts` → `TYPE_TO_ARCHETYPE`.
+
+## Steps
+
+<Steps>
+  <Step title="Define the character's core attributes">
+    Before editing any file, settle on these values:
+
+    - **`id`** — unique kebab-case identifier (used as the key in every file)
+    - **`name`** — display name in Simplified Chinese (source language)
+    - **`series`** — source work name
+    - **`matchCode`** — four-letter MBTI type (e.g., `INFP`)
+    - **`matchCodeFlex`** *(optional)* — additional compatible MBTI types for borderline characters
+    - **`code`** — the four-letter custom character code shown on the result page; must be unique
+    - **`archetypeId`** — one of the eight valid IDs listed above
+    - **`vector`** — all six axes: `expression`, `temperature`, `judgement`, `order`, `agency`, `aura`
+    - **`title`**, **`tags`**, **`note`** — result-page copy
+
+    For vector guidance, find one or two existing characters in `characters.json` who feel similar and use them as a reference baseline. Avoid maxing out all axes.
+
+    <Tip>
+      `expression` measures outward expressiveness, `temperature` emotional warmth, `judgement` decisiveness, `order` planning tendency, `agency` proactivity, and `aura` presence/charisma. These six axes differentiate characters who share the same MBTI type.
+    </Tip>
+  </Step>
+
+  <Step title="Add the character entry to characters.json">
+    Edit `src/data/characters.json` and append a new object to the array. The minimum valid structure is:
+
+    ```json
+    {
+      "id": "new-character-id",
+      "name": "角色名",
+      "series": "作品名",
+      "matchCode": "INFP",
+      "code": "ABCD",
+      "title": "Result page title",
+      "archetypeId": "moonlit-guardian",
+      "tags": ["tag1", "tag2", "tag3", "tag4"],
+      "note": "Character analysis text for result page.",
+      "vector": {
+        "expression": 0,
+        "temperature": 2,
+        "judgement": 1,
+        "order": 0,
+        "agency": 1,
+        "aura": 2
+      }
+    }
+    ```
+
+    Optional enhancement fields you can add:
+
+    - **`matchCodeFlex`** — array of additional MBTI strings for flexible matching
+    - **`signature.uniqueAxes`** — subset of the vector that most strongly identifies this character
+    - **`signature.questionAffinity`** — bind specific question responses to boost recognition:
+
+    ```json
+    {
+      "signature": {
+        "questionAffinity": [
+          { "questionId": "q12", "expected": "agree", "weight": 1.4 },
+          { "questionId": "q20", "expected": "neutral", "weight": 1.2 }
+        ]
+      }
+    }
+    ```
+
+    <Warning>
+      Every `questionId` in `questionAffinity` must correspond to a real question in `questions.json` (e.g., `q1` through `q39`). References to non-existent question IDs are silently skipped by the engine — they do not cause errors, but the affinity score for that entry will not contribute to matching.
+    </Warning>
+  </Step>
+
+  <Step title="Prepare character image assets">
+    Characters require two image files, both in WebP format with a transparent background.
+
+    **Full-size image** — placed at `public/images/characters/<character-name>.webp`. Used on the result page and in the PNG share poster.
+
+    **Thumbnail** — placed at `public/images/characters/thumbs/<character-name>.webp`. Must be exactly 400 px wide (height proportional). Used on the character gallery page.
+
+    The recommended workflow uses the project's included scripts:
+
+    ```bash
+    # 1. Place your transparent-background PNG source in:
+    #    public/images/characters/<character-name>.png
+
+    # 2. If the source has a background, remove it first:
+    python scripts/remove_character_backgrounds.py
+
+    # 3. Generate WebP full-size and thumbnail in one pass:
+    python scripts/generate_character_webp.py
+    ```
+
+    If you prefer manual conversion with ffmpeg:
+
+    ```bash
+    # Full-size WebP (quality 85)
+    ffmpeg -i "角色名.png" -quality 85 "角色名.webp"
+
+    # Thumbnail (400px wide, quality 80)
+    ffmpeg -i "角色名.png" -vf "scale=400:-1" -quality 80 "thumbs/角色名.webp"
+    ```
+
+    <Note>
+      Keep the PNG source file in the repository for future reprocessing, but only the WebP files are served at runtime.
+    </Note>
+  </Step>
+
+  <Step title="Add the visual configuration entry">
+    Edit `src/data/characterVisuals.json` and add an entry keyed by the character's `id`:
+
+    ```json
+    "new-character-id": {
+      "image": "/images/characters/角色名.webp",
+      "thumb": "/images/characters/thumbs/角色名.webp",
+      "accent": "#7ec7f9"
+    }
+    ```
+
+    | Field | Usage |
+    | :---- | :---- |
+    | `image` | Full-size path — result page main visual and share poster |
+    | `thumb` | Thumbnail path — character gallery cards |
+    | `accent` | Hex color — result page header background, buttons, and highlight areas |
+
+    Choose an `accent` color that reflects the character's visual identity. If `thumb` is omitted, the gallery falls back to `image`, but this is not recommended.
+  </Step>
+
+  <Step title="Re-run the probability simulation">
+    After adding a character, you **must** regenerate the entire `characterProbabilities.json` file. Do not manually append a single entry — partial additions skew the distribution for all other characters.
+
+    ```bash
+    node scripts/probability-simulation.mjs
+    ```
+
+    This script simulates a population of quiz responses against the full character library and writes updated hit-rate percentages back to `src/data/characterProbabilities.json`. The result page uses these values to display "X% of people get this character."
+  </Step>
+
+  <Step title="Add i18n entries for all four locales">
+    Edit `src/i18n/characters.ts` and add the character to the `characterNameI18n` object:
+
+    ```typescript
+    'new-character-id': {
+      'zh-CN': '角色简中名',
+      'zh-TW': '角色繁中名',
+      en: 'Character English Name',
+      ja: 'キャラクター名',
+    }
+    ```
+
+    If the character comes from a series not already in the `seriesI18n` table, add the series entry too:
+
+    ```typescript
+    '作品名': {
+      'zh-CN': '作品名',
+      'zh-TW': '作品繁中名',
+      en: 'Series English Name',
+      ja: '作品日本語名',
+    }
+    ```
+
+    The key in `characterNameI18n` must exactly match the character's `id`. Skipping this step causes the character name and series to fall back to the raw Chinese strings in non-Chinese locales.
+  </Step>
+
+  <Step title="Verify the addition">
+    Run a production build to catch any TypeScript or data errors:
+
+    ```bash
+    npm run build
+    ```
+
+    Then start the preview server and manually check:
+
+    ```bash
+    npm run preview
+    ```
+
+    Work through this checklist before opening your PR:
+
+    1. Character gallery page shows the thumbnail with no 404 error
+    2. Character result page shows the full-size image correctly
+    3. Image has a transparent background (no white or solid fill, no visible cutout artifacts)
+    4. Result page accent color, title, tags, and note all display correctly
+    5. Switch to at least one non-Chinese locale — character name and series name show translated text
+    6. If you have access to a targeted test mode, confirm the character can be matched
+  </Step>
+</Steps>
+
+## Completion checklist
+
+<AccordionGroup>
+  <Accordion title="Data and structure">
+    - `src/data/characters.json` — new entry is valid JSON and contains all required fields
+    - `id` is unique and uses the same value across all files
+    - `matchCode` is a valid four-letter MBTI string
+    - `archetypeId` is one of the eight valid values
+    - `vector` has all six axes defined
+    - `code` does not duplicate any existing character code
+    - Any `questionAffinity` entries reference real question IDs
+  </Accordion>
+  <Accordion title="Images">
+    - `public/images/characters/<name>.webp` exists (full-size, transparent background)
+    - `public/images/characters/thumbs/<name>.webp` exists (400 px wide, transparent background)
+    - No white fill, solid background, or visible cutout artifacts
+  </Accordion>
+  <Accordion title="Visuals and probabilities">
+    - `src/data/characterVisuals.json` has an entry with `image`, `thumb`, and `accent`
+    - `src/data/characterProbabilities.json` was fully regenerated via `scripts/probability-simulation.mjs` (not hand-edited)
+  </Accordion>
+  <Accordion title="i18n">
+    - `src/i18n/characters.ts` `characterNameI18n` entry covers all four locales (`zh-CN`, `zh-TW`, `en`, `ja`)
+    - If the series is new, `seriesI18n` entry also covers all four locales
+  </Accordion>
+  <Accordion title="Build and manual QA">
+    - `npm run build` passes without errors
+    - Thumbnail visible in gallery with no 404
+    - Full-size image visible on result page
+    - Result page copy (title, tags, note) renders correctly
+    - At least one non-Chinese locale tested for character and series name
+  </Accordion>
+</AccordionGroup>

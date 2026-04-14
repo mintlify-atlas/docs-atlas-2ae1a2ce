@@ -1,0 +1,70 @@
+---
+title: "Character Gallery: Browse All ACGTI Anime Persona Matches"
+description: "Discover how the ACGTI character gallery works — browsing regular and hidden characters, card layout details, filtering, and previewing character results."
+---
+
+The character gallery at `/characters` lets you explore the full roster of ACGTI personas before or after taking the quiz. Every character in the database is shown here, including hidden ones, so you can understand the range of matches the engine can produce and get a feel for which archetypes and series are represented.
+
+## Browsing the gallery
+
+Characters are laid out in a responsive grid that adapts from two columns on mobile to as many as five on wide viewports. The grid is sorted so that regular characters appear first, followed by hidden characters ordered by their configured display order (`getHiddenCharacterOrder`).
+
+A stats panel at the top of the page shows the total character count and highlights the three most recently added characters with links to their result preview pages.
+
+## Character cards
+
+Each card in the grid shows:
+
+<CardGroup cols={2}>
+  <Card title="Character image" icon="image">
+    A square thumbnail (`thumb` field, falling back to `image`) cropped to the bottom of the frame to foreground the character's face. The background is a soft gradient tinted with the character's `accent` color.
+  </Card>
+  <Card title="Character code" icon="hash">
+    The short identifier (e.g., `ARIS-7`) displayed as a pill badge in the character's accent color. This is the same code that appears on the result page.
+  </Card>
+  <Card title="MBTI type" icon="grid-2x2">
+    The character's `matchCode` (e.g., `INFJ`) shown in a neutral grey badge alongside the character code.
+  </Card>
+  <Card title="Name and series" icon="tv">
+    The localized character name as the card heading, with the source series shown in a smaller line below.
+  </Card>
+  <Card title="Archetype title" icon="sparkles">
+    A short localized descriptor (the character's `title` field) shown at the bottom of the card, clamped to two lines.
+  </Card>
+  <Card title="Fandom tag" icon="users">
+    Characters whose `personaBasis.type` is `"fandom-impression"` display a gold "Fan Consensus" badge, indicating their personality profile is based on community interpretation rather than strict canon.
+  </Card>
+</CardGroup>
+
+## Hidden characters
+
+Hidden characters (where `hidden: true` in the character data) are included in the gallery but handled differently:
+
+- Their card uses `<article>` instead of `<RouterLink>`, so clicking does not navigate to a result preview.
+- The thumbnail area shows the character's series name as a placeholder rather than their actual image.
+- Hovering a hidden card does not trigger the zoom or border-highlight effects that regular cards have.
+- Their archetype title is replaced with a localized "hidden character" label from `getHiddenCharacterTitle()`.
+
+<Info>
+Hidden characters can still appear as your quiz result. The gallery treats them as browsable entries so you know they exist, but their identity is only fully revealed on the result page after you match with them.
+</Info>
+
+## Previewing a character's result
+
+Clicking any regular character card navigates to `/result?character=<id>`. This loads a debug result for that character — the same view you would see if you had actually matched with them — without requiring you to take the quiz. It is useful for exploring what a specific character's result page looks like.
+
+## Filtering and search
+
+The gallery page currently shows all characters in the ordered list (`orderedCharacters`). Filtering by name, series, archetype, or MBTI type is not yet exposed as a UI control, but the underlying data is fully structured to support it. If you want to add filter controls, the reactive `characters` array from `useQuiz()` can be filtered client-side using the character's `matchCode`, `archetypeId`, `series`, or `name` fields.
+
+## Contributing new characters
+
+If you want to add a character to the ACGTI roster, refer to the contributing guide:
+
+<Card title="Add a character" href="/contributing/add-character" icon="circle-plus">
+  Step-by-step instructions for adding a new character, including required fields, image sizing, vector calibration, and the mandatory i18n entries for all four supported locales.
+</Card>
+
+<Warning>
+Every new character must have i18n entries for all four supported locales (`zh-CN`, `zh-TW`, `en`, `ja`) before it can be merged. Missing translations will cause the gallery and result pages to fall back to the raw data string.
+</Warning>

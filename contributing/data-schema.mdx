@@ -1,0 +1,546 @@
+---
+title: "ACGTI Data Files: Complete Schema Reference for Contributors"
+description: "Field-by-field documentation for every JSON and TypeScript data file in the ACGTI quiz engine — questions, archetypes, characters, visuals, and i18n."
+---
+
+Every quiz result ACGTI produces is assembled from six data files. This page documents each file's schema in full, with real examples drawn directly from the source, so you can add new content without guessing field semantics or breaking the scoring engine.
+
+## src/data/questions.json
+
+Each object in `questions.json` defines a single survey question. The quiz engine reads every question in order, collects the user's answer on a −3 to +3 scale, and feeds the result into four MBTI dimension scores and eight archetype weight buckets simultaneously.
+
+### Question interface
+
+```typescript
+interface Question {
+  id: string
+  text?: string
+  prompt?: string
+  scene: string
+  options?: QuestionOption[]
+  weights?: Partial<Record<QuestionArchetypeWeightId, number>>
+  dimension: DimensionPair  // 'E_I' | 'S_N' | 'T_F' | 'J_P'
+  sign: 1 | -1
+}
+
+interface QuestionOption {
+  id: string
+  label: string
+  tone: string
+  weights: Partial<Record<QuestionArchetypeWeightId, number>>
+}
+```
+
+### Fields
+
+<ParamField path="id" type="string" required>
+  Stable unique identifier for this question. Used as a foreign key in character `signature.questionAffinity` arrays. Format is `q1`, `q2`, … — do not reuse or renumber existing IDs.
+</ParamField>
+
+<ParamField path="text" type="string">
+  The question text shown to the user in Likert (agree/disagree) format. Mutually exclusive with `prompt` + `options`: use `text` for slider-style questions, `prompt` for multiple-choice questions.
+</ParamField>
+
+<ParamField path="prompt" type="string">
+  The question stem when the question presents discrete `options`. If both `text` and `prompt` are absent the question is skipped by the UI.
+</ParamField>
+
+<ParamField path="scene" type="string" required>
+  A short Chinese label categorising the question's thematic context (e.g. `"追番体验"`, `"社交场合"`). Displayed alongside the question in the UI and used for grouping in the editor.
+</ParamField>
+
+<ParamField path="options" type="QuestionOption[]">
+  Present only on multiple-choice questions. Each option carries its own `weights` map that is applied instead of the top-level `weights` when the user selects that option.
+</ParamField>
+
+<ParamField path="weights" type="object">
+  Archetype weight deltas for Likert questions. Keys are `QuestionArchetypeWeightId` values: `hero`, `strategist`, `guardian`, `lonewolf`, `healer`, `berserker`, `trickster`, `ruler`. Positive values push the user toward that archetype; negative values push away. Missing keys default to `0`.
+</ParamField>
+
+<ParamField path="dimension" type="string" required>
+  Which MBTI dimension pair this question scores. One of `E_I`, `S_N`, `T_F`, or `J_P`.
+</ParamField>
+
+<ParamField path="sign" type="number" required>
+  Either `1` or `-1`. Controls the polarity of the user's answer relative to the dimension. A `sign` of `1` means a high positive answer pushes toward the left letter (E, S, T, J); `-1` reverses the direction. Set this when the question is phrased so that agreement implies the right-letter trait.
+</ParamField>
+
+### Example
+
+```json
+{
+  "id": "q3",
+  "text": "追番时看到"前方高能"弹幕，我非但不会提前回避，反而会更加聚精会神地期待接下来的刺激内容。",
+  "scene": "追番体验",
+  "dimension": "S_N",
+  "sign": 1,
+  "weights": {
+    "strategist": 2,
+    "trickster": 2,
+    "healer": 1,
+    "ruler": -1,
+    "guardian": -1,
+    "hero": 0,
+    "lonewolf": 0,
+    "berserker": 0
+  }
+}
+```
+
+<Note>
+  The quiz engine normalises the `weights` object before applying it, subtracting the mean and dividing by the L1 norm. You do not need to ensure your weights sum to zero, but keeping the range roughly between −3 and +3 produces the most predictable influence.
+</Note>
+
+---
+
+## src/data/archetypes.json
+
+`archetypes.json` defines the eight anime character archetypes that sit between raw MBTI codes and individual character matches. Every character is assigned to exactly one archetype, and the archetype score contributes 35% of the final character-match score.
+
+### Archetype interface
+
+```typescript
+interface Archetype {
+  id: ArchetypeId
+  name: string
+  subtitle: string
+  oneLiner: string
+  description: string
+  tags: string[]
+  narrativeRole: string
+  spotlight: string
+  weakness: string
+  keywords: string[]
+  accent: string
+  vector: Record<DimensionId, number>
+}
+```
+
+### Fields
+
+<ParamField path="id" type="string" required>
+  Stable archetype identifier. One of: `luminous-lead`, `icebound-observer`, `oathbound-captain`, `trickster-orbit`, `gentle-healer`, `shadow-strategist`, `chaos-spark`, `moonlit-guardian`.
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  Display name shown on the result page (Chinese). E.g. `"发光主角位"`.
+</ParamField>
+
+<ParamField path="subtitle" type="string" required>
+  One-phrase descriptor shown below the name. E.g. `"把场子点亮的人"`.
+</ParamField>
+
+<ParamField path="oneLiner" type="string" required>
+  A single evocative sentence in second person that the user sees as their archetype tagline.
+</ParamField>
+
+<ParamField path="description" type="string" required>
+  2–3 sentence paragraph explaining the archetype's personality profile. Used in the result page body copy.
+</ParamField>
+
+<ParamField path="tags" type="string[]" required>
+  Short trait labels (2–4 words each) that appear as chips on the result card.
+</ParamField>
+
+<ParamField path="narrativeRole" type="string" required>
+  The archetype's storytelling function, e.g. `"主角团核心 / 气氛引擎"`. Displayed on the result page.
+</ParamField>
+
+<ParamField path="spotlight" type="string" required>
+  The archetype's defining moment or strength, written as a scene description.
+</ParamField>
+
+<ParamField path="weakness" type="string" required>
+  A candid description of the archetype's characteristic blind spot or failure mode.
+</ParamField>
+
+<ParamField path="keywords" type="string[]" required>
+  Four to six single-word Chinese keywords. Used for search indexing and thematic decoration.
+</ParamField>
+
+<ParamField path="accent" type="string" required>
+  Hex colour code used as the archetype's theme colour throughout the UI. Must have sufficient contrast against both light and dark backgrounds.
+</ParamField>
+
+<ParamField path="vector" type="object" required>
+  Six-axis personality vector representing where this archetype sits in trait space. Each key is a `DimensionId` (`expression`, `temperature`, `judgement`, `order`, `agency`, `aura`) with an integer value from −3 to +3. Used for vector-similarity scoring against user responses.
+</ParamField>
+
+### Example
+
+```json
+{
+  "id": "luminous-lead",
+  "name": "发光主角位",
+  "subtitle": "把场子点亮的人",
+  "oneLiner": "你不是安静的背景板，你会把剧情推向更明亮的地方。",
+  "description": "自带「高输出、强推进」的主角面板。你天生就是带领团队冲锋的那个人，注定要站在聚光灯下，是队伍里不可或缺的情绪引擎和主心骨。",
+  "tags": ["高表达", "热感叙事", "推进型"],
+  "narrativeRole": "主角团核心 / 气氛引擎",
+  "spotlight": "当所有人犹豫时，你会先把第一步踩出去。",
+  "weakness": "太容易把自己燃尽，也容易因为承担太多而失去节奏。",
+  "keywords": ["热血", "主舞台", "前线", "带头"],
+  "accent": "#ff8a5b",
+  "vector": {
+    "expression": 3,
+    "temperature": 2,
+    "judgement": 1,
+    "order": 0,
+    "agency": 3,
+    "aura": 1
+  }
+}
+```
+
+### Archetype–archetype mapping
+
+The quiz engine maps question weight role names to archetype IDs as follows:
+
+| Role key | Archetype ID |
+|---|---|
+| `hero` | `luminous-lead` |
+| `strategist` | `shadow-strategist` |
+| `guardian` | `moonlit-guardian` |
+| `lonewolf` | `icebound-observer` |
+| `healer` | `gentle-healer` |
+| `berserker` | `chaos-spark` |
+| `trickster` | `trickster-orbit` |
+| `ruler` | `oathbound-captain` |
+
+---
+
+## src/data/characters.json
+
+`characters.json` is the central registry of every matchable character. At the end of the quiz the engine scores every non-hidden character against the user's profile and surfaces the best match as the result.
+
+### CharacterMatch interface
+
+```typescript
+interface CharacterMatch {
+  id: string
+  name: string
+  hidden?: boolean
+  series: string
+  addedAt?: string
+  matchCode: string
+  matchCodeFlex?: string[]
+  matchWeight?: number
+  code: string
+  title?: string
+  archetypeId: ArchetypeId
+  tags: string[]
+  note: string
+  vector: Record<DimensionId, number>
+  personaBasis?: PersonaBasis
+  signature?: {
+    uniqueAxes?: Partial<Record<DimensionId, number>>
+    questionAffinity?: Array<{
+      questionId: string
+      expected: 'agree' | 'disagree' | 'neutral'
+      weight?: number
+    }>
+  }
+}
+
+interface PersonaBasis {
+  type: 'canon' | 'fandom-impression'
+  label: string
+  confidence: 'high' | 'medium' | 'low'
+  summary: string
+}
+```
+
+### Fields
+
+<AccordionGroup>
+
+<Accordion title="Identity fields">
+
+<ParamField path="id" type="string" required>
+  Unique kebab-case identifier. Used as the key in `characterVisuals.json`, `characterProbabilities.json`, and the i18n maps. Must be stable once published — changing it breaks saved quiz results.
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  Canonical Chinese name. Used as the display fallback when no i18n entry exists for the current locale.
+</ParamField>
+
+<ParamField path="series" type="string" required>
+  Source franchise or series name in Chinese, e.g. `"新世纪福音战士"`. Displayed on the result card.
+</ParamField>
+
+<ParamField path="hidden" type="boolean" default="false">
+  When `true`, the character is excluded from the normal match pool and only surfaces for users whose profile is an exceptionally close fit. Hidden characters do not appear in the public character list. Their names are masked on the result page.
+</ParamField>
+
+<ParamField path="addedAt" type="string">
+  ISO 8601 date string (`YYYY-MM-DD`) recording when the character was added to the database. Used to show "newly added" badges.
+</ParamField>
+
+<ParamField path="code" type="string" required>
+  A short 4-letter mnemonic code derived from the character's name, e.g. `"HTMK"` for Hatsune Miku or `"AYRE"` for Ayanami Rei. Shown on the result card as a decorative identifier.
+</ParamField>
+
+<ParamField path="title" type="string">
+  A humorous one-line subtitle describing the character's fandom persona. Displayed below the character's name on the result card.
+</ParamField>
+
+</Accordion>
+
+<Accordion title="Scoring fields">
+
+<ParamField path="matchCode" type="string" required>
+  The primary 4-letter MBTI code this character is associated with, e.g. `"ENFP"`. Contributes 25% of the match score.
+</ParamField>
+
+<ParamField path="matchCodeFlex" type="string[]">
+  Additional MBTI codes the character is also compatible with. The engine takes the best score across `matchCode` and all `matchCodeFlex` entries, so flex codes allow a character to appear for adjacent types without being diluted.
+</ParamField>
+
+<ParamField path="matchWeight" type="number" default="1">
+  A global multiplier applied to this character's final score before ranking. Values above 1.0 make the character appear more often; values below 1.0 suppress it. Use sparingly.
+</ParamField>
+
+<ParamField path="archetypeId" type="string" required>
+  The archetype this character belongs to. Must be a valid `ArchetypeId`. Contributes 35% of the match score via archetype-level scoring.
+</ParamField>
+
+<ParamField path="vector" type="object" required>
+  Six-axis personality vector for this character. Keys are `DimensionId` values (`expression`, `temperature`, `judgement`, `order`, `agency`, `aura`), values are integers from −3 to +3. Contributes 30% of the match score via cosine similarity against the user's vector.
+</ParamField>
+
+</Accordion>
+
+<Accordion title="Presentation fields">
+
+<ParamField path="tags" type="string[]" required>
+  Four humorous fandom-style tags displayed as chips on the result card. These should capture the character's iconic traits or memes, not generic descriptors.
+</ParamField>
+
+<ParamField path="note" type="string" required>
+  2–4 sentences of flavour text describing the character in an irreverent, self-aware fandom voice. Shown on the result card. Do not write a Wikipedia summary — write how a fan would describe them in a group chat.
+</ParamField>
+
+</Accordion>
+
+<Accordion title="Persona basis">
+
+<ParamField path="personaBasis" type="object">
+  Metadata documenting the evidentiary basis for the character's assigned personality profile.
+</ParamField>
+
+<ParamField path="personaBasis.type" type="string">
+  Either `"canon"` (based on official story content) or `"fandom-impression"` (based on widely-shared community interpretation).
+</ParamField>
+
+<ParamField path="personaBasis.label" type="string">
+  Short Chinese label summarising the source type, e.g. `"圈层印象映射"`.
+</ParamField>
+
+<ParamField path="personaBasis.confidence" type="string">
+  Confidence level: `"high"`, `"medium"`, or `"low"`. Reflects how well-established the character's personality is in canon or fandom consensus.
+</ParamField>
+
+<ParamField path="personaBasis.summary" type="string">
+  One sentence explaining the specific basis, e.g. which arcs or community impressions were used.
+</ParamField>
+
+</Accordion>
+
+<Accordion title="Signature (character-specific scoring)">
+
+<ParamField path="signature" type="object">
+  Optional object enabling finer-grained character-specific scoring on top of the vector and archetype scores. Contributes 10% of the total match score.
+</ParamField>
+
+<ParamField path="signature.uniqueAxes" type="object">
+  A subset of the six dimension axes with the expected values for this character. The engine computes a weighted similarity between the user's vector on these axes and the expected values. Axes with larger absolute values get higher weight, rewarding extreme personality signals.
+</ParamField>
+
+<ParamField path="signature.questionAffinity" type="array">
+  A list of question-level affinities. Each entry specifies a `questionId`, an `expected` response direction (`"agree"`, `"disagree"`, or `"neutral"`), and an optional `weight` (default 1). This lets you fine-tune which users match a character based on their answers to specific questions.
+</ParamField>
+
+</Accordion>
+
+</AccordionGroup>
+
+### Example entry
+
+```json
+{
+  "id": "hatsune-miku",
+  "name": "初音未来",
+  "series": "VOCALOID",
+  "matchCode": "ENFP",
+  "matchCodeFlex": ["ENFJ", "ESFJ"],
+  "code": "HTMK",
+  "title": "世界第一的公主殿下（劳务派遣版）",
+  "archetypeId": "luminous-lead",
+  "tags": [
+    "电子韭菜收割机",
+    "葱田永动机",
+    "演唱会空气吉他冠军",
+    "二次元公务员"
+  ],
+  "note": "你以为她是歌姬，其实她是二次元公务员——演唱会排期比社畜加班还密，葱色双马尾一晃，弹幕自动刷「世最可」，哪怕你根本没听清歌词。属于那种「我不认识她，但我刷过她的表情包」的典中典。",
+  "vector": {
+    "expression": 3,
+    "temperature": 2,
+    "judgement": 0,
+    "order": 0,
+    "agency": 3,
+    "aura": 2
+  },
+  "signature": {
+    "uniqueAxes": {
+      "expression": 3,
+      "temperature": 2,
+      "agency": 3,
+      "aura": 2
+    }
+  },
+  "personaBasis": {
+    "type": "fandom-impression",
+    "label": "圈层印象映射",
+    "confidence": "low",
+    "summary": "主要依据社区常见形象、二创传播与企划衍生印象，非官方唯一人格结论。"
+  }
+}
+```
+
+<Warning>
+  The `id` field is the primary key across multiple data files. If you change a character's `id` after it has been published, you must also update `characterVisuals.json`, `characterProbabilities.json`, and `src/i18n/characters.ts` — and existing saved quiz results pointing to the old ID will be orphaned.
+</Warning>
+
+---
+
+## src/data/characterVisuals.json
+
+`characterVisuals.json` is a flat map from character ID to visual asset paths and accent colour. It can be generated automatically by `scripts/process_character_assets.py`, which extracts accent colors from character images. When adding a character manually, edit this file directly to add the `image`, `thumb`, and `accent` fields for the new character ID.
+
+### Fields
+
+<ParamField path="[characterId].image" type="string" required>
+  Root-relative path to the full-size WebP image, e.g. `"/images/characters/初音未来.webp"`. Displayed on the result page at its natural resolution.
+</ParamField>
+
+<ParamField path="[characterId].thumb" type="string" required>
+  Root-relative path to the 400 px-wide thumbnail WebP, e.g. `"/images/characters/thumbs/初音未来.webp"`. Used wherever a smaller image is needed, such as match cards.
+</ParamField>
+
+<ParamField path="[characterId].accent" type="string" required>
+  Hex colour code automatically extracted from the character's image by the asset pipeline. Used to theme the result page for that character.
+</ParamField>
+
+### Example
+
+```json
+{
+  "hatsune-miku": {
+    "image": "/images/characters/初音未来.webp",
+    "thumb": "/images/characters/thumbs/初音未来.webp",
+    "accent": "#39c5bb"
+  },
+  "ayanami-rei": {
+    "image": "/images/characters/绫波丽.webp",
+    "thumb": "/images/characters/thumbs/绫波丽.webp",
+    "accent": "#9ab0d3"
+  }
+}
+```
+
+<Tip>
+  Run `python scripts/process_character_assets.py` after adding a new character image to regenerate this file automatically. The script extracts the dominant saturated colour from the character pixels (excluding transparent areas) and writes it as the accent.
+</Tip>
+
+---
+
+## src/data/characterProbabilities.json
+
+`characterProbabilities.json` stores the results of a large Monte Carlo simulation that estimates how likely each character is to win under uniformly random answer distributions. These probabilities power the rarity display on the result page.
+
+### Top-level fields
+
+<ParamField path="seed" type="number" required>
+  The integer seed used for the pseudorandom number generator during the simulation run. Recorded so the run is reproducible.
+</ParamField>
+
+<ParamField path="runs" type="number" required>
+  Number of simulated quiz completions. The current file uses 200,000 runs.
+</ParamField>
+
+<ParamField path="probabilities" type="object" required>
+  Map from character ID to percentage hit rate. A value of `1.25` means approximately 1.25% of uniformly random answer sets produce that character as the top match.
+</ParamField>
+
+### Example
+
+```json
+{
+  "seed": 20260411,
+  "runs": 200000,
+  "probabilities": {
+    "eis-taffy": 11.9855,
+    "kaltsit": 8.1345,
+    "fujiwara-chika": 5.0865,
+    "hatsune-miku": 0.303,
+    "furina": 0.0005
+  }
+}
+```
+
+Characters with higher probabilities are considered "common" results; those with values below ~0.1% are considered rare. The rarity tiers are computed at runtime from the distribution, not hardcoded.
+
+<Note>
+  Re-run the simulation whenever you add or significantly re-tune a character. See `scripts/probability-simulation.mjs` for usage. Always commit the updated `characterProbabilities.json` alongside the character data changes.
+</Note>
+
+---
+
+## src/i18n/characters.ts
+
+`characters.ts` exports two maps that provide localised names for characters and their source series. Supported locales are `zh-CN`, `zh-TW`, `en`, and `ja`.
+
+### characterNameI18n
+
+A record keyed by character ID, where each value is a `LocalizedText` object with one key per locale:
+
+```typescript
+const characterNameI18n: Record<string, Record<AppLocale, string>> = {
+  'hatsune-miku': {
+    'zh-CN': '初音未来',
+    'zh-TW': '初音未來',
+    en: 'Hatsune Miku',
+    ja: '初音ミク',
+  },
+  'ayanami-rei': {
+    'zh-CN': '绫波丽',
+    'zh-TW': '綾波零',
+    en: 'Rei Ayanami',
+    ja: '綾波レイ',
+  },
+}
+```
+
+If a character has no entry in this map, the UI falls back to the `name` field from `characters.json`.
+
+### seriesI18n
+
+A parallel map for series names, following the same structure. Add a `seriesI18n` entry for any new series whose name differs meaningfully across locales.
+
+### Adding a new character
+
+When you add a character to `characters.json`, add a matching entry to both `characterNameI18n` and `seriesI18n` in `characters.ts`. All four locale keys must be present — the TypeScript compiler enforces this via the `AppLocale` union type.
+
+```typescript
+'edogawa-conan': {
+  'zh-CN': '江户川柯南',
+  'zh-TW': '江戶川柯南',
+  en: 'Conan Edogawa',
+  ja: '江戸川コナン',
+},
+```
+
+<Warning>
+  Omitting any locale key will cause a TypeScript compile error. If you are unsure of the correct Japanese rendering, use the official title from the series' Japanese release rather than a transliteration.
+</Warning>

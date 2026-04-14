@@ -1,0 +1,125 @@
+---
+title: "Set Up Your ACGTI Local Development Environment"
+description: "Clone the repo, install dependencies, and run the Vite dev server. Covers branch strategy, GitHub Actions CI, and Cloudflare Pages deployment."
+---
+
+ACGTI is a pure-frontend Vue 3 + TypeScript project built with Vite. Getting a local copy running takes under five minutes — no backend, no database, no accounts required. This page walks you through every step from cloning the repository to understanding how your changes reach production.
+
+## Prerequisites
+
+You need the following tools installed before you start:
+
+- **Node.js** — version 18 or later recommended
+- **npm** — comes bundled with Node.js
+
+Verify your versions:
+
+```bash
+node --version
+npm --version
+```
+
+## Local setup
+
+<Steps>
+  <Step title="Fork and clone the repository">
+    If you plan to submit a pull request, fork the repository on GitHub first, then clone your fork. If you're just exploring, you can clone the upstream repository directly.
+
+    ```bash
+    git clone https://github.com/<your-username>/ACGTI.git
+    cd ACGTI
+    ```
+  </Step>
+
+  <Step title="Check out the dev branch">
+    All active development happens on `dev`. Base your work on this branch, not on `main`.
+
+    ```bash
+    git checkout dev
+    ```
+  </Step>
+
+  <Step title="Install dependencies">
+    ```bash
+    npm install
+    ```
+
+    This installs Vue 3, Vue Router, TypeScript, Vite, `vue-tsc`, and other dev dependencies declared in `package.json`.
+  </Step>
+
+  <Step title="Start the development server">
+    ```bash
+    npm run dev
+    ```
+
+    Vite starts a hot-module-replacement dev server. Open the URL it prints (typically `http://localhost:5173`) in your browser. The page reloads automatically as you edit source files.
+  </Step>
+
+  <Step title="Build for production">
+    ```bash
+    npm run build
+    ```
+
+    This runs `vue-tsc -b` (TypeScript type checking) followed by `vite build`. Build output lands in `dist/` with relative asset paths (`base: './'`), making it deployable to any static host.
+
+    <Warning>
+      Always run `npm run build` before opening a pull request. The CI pipeline runs the same command and will reject PRs that fail to build.
+    </Warning>
+  </Step>
+
+  <Step title="Preview the production build locally">
+    ```bash
+    npm run preview
+    ```
+
+    Serves the `dist/` folder locally so you can verify the production bundle before pushing.
+  </Step>
+</Steps>
+
+## Branch strategy
+
+ACGTI uses a two-branch model:
+
+| Branch | Purpose |
+| :----- | :------ |
+| `main` | Stable production branch. Only receives merges from `dev`. Direct PRs against `main` are closed. |
+| `dev`  | Primary development branch. All feature work, bug fixes, and new content land here first. |
+
+When contributing from a fork, create a feature branch off `dev` and target `dev` in your pull request:
+
+```bash
+git checkout dev
+git checkout -b feature/your-feature-name
+```
+
+<Note>
+  The `main` branch is automatically deployed to production by Cloudflare Pages. Never push untested changes directly to `main`.
+</Note>
+
+## CI and deployment
+
+**GitHub Actions** runs on every push to `main` or `dev`, and on all pull requests. The workflow executes:
+
+```bash
+npm ci
+npm run build
+```
+
+A failing build blocks the PR. There are no separate test steps — the TypeScript compiler (`vue-tsc`) is the primary correctness check.
+
+**Cloudflare Pages** watches the GitHub repository and automatically builds and deploys from `main` on each merge. No manual deployment steps are needed once a PR is merged.
+
+**GitHub Releases** are created automatically when a `v*` tag is pushed. The workflow builds `dist/`, zips it, and attaches it to the release:
+
+```bash
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+## Available scripts
+
+| Command | Description |
+| :------ | :---------- |
+| `npm run dev` | Start the Vite HMR dev server |
+| `npm run build` | Type-check and build to `dist/` |
+| `npm run preview` | Serve the `dist/` folder locally |

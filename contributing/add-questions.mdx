@@ -1,0 +1,156 @@
+---
+title: "How to Add New Quiz Questions to ACGTI"
+description: "Learn the question JSON schema, how dimension and sign work together, how to set archetype weights, and when to re-run the probability simulation."
+---
+
+ACGTI's quiz consists of 39 scenario-based questions, each tied to one MBTI dimension and a set of archetype weights. Adding a new question means extending `src/data/questions.json` with a correctly structured entry. This page explains every field in that structure and the decisions behind them.
+
+## Where questions live
+
+All quiz questions are stored in `src/data/questions.json` as an array of question objects. The file is loaded statically at runtime — there is no CMS or database. Question order in the array determines display order during the quiz.
+
+## Question structure
+
+Each question object has the following fields:
+
+```json
+{
+  "id": "q3",
+  "text": "追番时看到"前方高能"弹幕，我非但不会提前回避，反而会更加聚精会神地期待接下来的刺激内容。",
+  "scene": "追番体验",
+  "dimension": "S_N",
+  "sign": 1,
+  "weights": {
+    "strategist": 2,
+    "trickster": 2,
+    "healer": 1,
+    "ruler": -1,
+    "guardian": -1,
+    "hero": 0,
+    "lonewolf": 0,
+    "berserker": 0
+  }
+}
+```
+
+### Field reference
+
+| Field | Type | Description |
+| :---- | :--- | :---------- |
+| `id` | string | Unique question identifier in the format `q1`, `q2`, … `q39` |
+| `text` | string | The scenario statement shown to the user |
+| `scene` | string | Short scene label (e.g., `"追番体验"`, `"生活态度"`) — used for internal categorization |
+| `dimension` | string | The MBTI dimension this question measures: `E_I`, `S_N`, `T_F`, or `J_P` |
+| `sign` | number | `1` or `-1` — controls which pole a positive answer favors |
+| `weights` | object | Per-archetype contribution scores |
+
+## Understanding `dimension` and `sign`
+
+Every question targets exactly one of the four MBTI dimension pairs:
+
+| Value | Dimension |
+| :---- | :-------- |
+| `E_I` | Extraversion / Introversion |
+| `S_N` | Sensing / Intuition |
+| `T_F` | Thinking / Feeling |
+| `J_P` | Judging / Perceiving |
+
+The `sign` field determines the direction of the scoring contribution when a user answers positively (agrees with the statement):
+
+- **`sign: 1`** — agreement pushes the score toward the **first** pole of the pair (E, S, T, or J)
+- **`sign: -1`** — agreement pushes the score toward the **second** pole of the pair (I, N, F, or P)
+
+For example, a question about enjoying spontaneous decisions with `dimension: "J_P"` and `sign: -1` means agreeing with it moves the user's J/P score toward **P** (Perceiving). A question about preferring structured plans with `sign: 1` moves the score toward **J** (Judging).
+
+<Tip>
+  Write your question text so that a person who strongly agrees with it clearly leans toward one specific pole. Ambiguous questions that could fit either pole are hard to sign correctly and reduce scoring accuracy.
+</Tip>
+
+## Understanding `weights`
+
+The `weights` object maps each of the eight archetype keys to a numeric contribution score. When a user answers a question, their response (on the 7-point scale from -3 to +3) is multiplied by the weight for each archetype and accumulated across all 39 questions. The archetype with the highest total score wins.
+
+### Archetype keys
+
+| Key | Archetype |
+| :-- | :-------- |
+| `hero` | Luminous Lead (发光主角位) |
+| `lonewolf` | Icebound Observer (冰面观察者) |
+| `guardian` | Moonlit Guardian (月下守护者) |
+| `trickster` | Trickster Orbit (灵巧回旋者) |
+| `healer` | Gentle Healer (温柔修复者) |
+| `strategist` | Shadow Strategist (影面策士) |
+| `berserker` | Chaos Spark (混沌火花) |
+| `ruler` | Oathbound Captain (誓约队长) |
+
+### Choosing weight values
+
+Weights can be positive, negative, or zero. A positive weight means agreeing with the question increases a user's score toward that archetype. A negative weight means agreeing moves them away from it.
+
+Practical guidelines:
+
+- Use `2` or `-2` for strong archetype signals
+- Use `1` or `-1` for moderate signals
+- Use `0` for archetypes the question is neutral toward
+- All eight keys must be present in the object, even if their value is `0`
+
+<Note>
+  You do not need to assign weights to every archetype. If a question primarily differentiates two or three archetypes, set the others to `0`. Over-weighting creates noise and reduces the quiz's ability to discriminate between similar archetypes.
+</Note>
+
+## Assigning a question ID
+
+Current questions are numbered `q1` through `q39`. New questions should continue the numeric sequence. If you add a question, use the next available number:
+
+```json
+{
+  "id": "q40",
+  ...
+}
+```
+
+<Warning>
+  If any character entry in `characters.json` uses `signature.questionAffinity` to reference a question ID, that ID must actually exist in `questions.json`. Always check for orphaned references after adding or renumbering questions.
+</Warning>
+
+## After adding questions
+
+Adding questions shifts how scores accumulate across the archetype weights. This changes which characters get matched for a given answer pattern, which in turn alters the character hit-rate distribution.
+
+Re-run the probability simulation after adding questions:
+
+```bash
+node scripts/probability-simulation.mjs
+```
+
+This regenerates `src/data/characterProbabilities.json` against the updated question set. Then run a build to confirm there are no errors:
+
+```bash
+npm run build
+```
+
+## Complete example
+
+Here is a full example of a well-formed question entry:
+
+```json
+{
+  "id": "q3",
+  "text": "追番时看到"前方高能"弹幕，我非但不会提前回避，反而会更加聚精会神地期待接下来的刺激内容。",
+  "scene": "追番体验",
+  "dimension": "S_N",
+  "sign": 1,
+  "weights": {
+    "strategist": 2,
+    "trickster": 2,
+    "healer": 1,
+    "ruler": -1,
+    "guardian": -1,
+    "hero": 0,
+    "lonewolf": 0,
+    "berserker": 0
+  }
+}
+```
+
+This question targets the S/N dimension. `sign: 1` means agreeing pushes toward **S** (the left-pole letter, labeled "Intuitive" in ACGTI's UI). It scores positively for `strategist` and `trickster` (archetypes associated with active information-seeking and stimulus response) and negatively for `ruler` and `guardian` (archetypes that prefer controlled, predictable environments).

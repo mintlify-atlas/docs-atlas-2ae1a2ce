@@ -1,0 +1,167 @@
+---
+title: "Character Matching Algorithm in ACGTI Explained"
+description: "The four-component weighted formula ACGTI uses to rank all 42 characters against your quiz profile: MBTI, archetype, vector similarity, and character-specific scores."
+---
+
+Once your quiz answers have been converted into an MBTI code, an archetype accumulator, and a six-dimensional user vector, the engine ranks every character in the roster against your profile. The ranking is not a simple type-code lookup — it combines four independent signals into a single weighted total, then applies an optional per-character multiplier. This page documents each piece of that pipeline as implemented in `rankCharactersByProfile` and its helper functions in `quizEngine.ts`.
+
+## The scoring formula
+
+For every character, the engine computes:
+
+```
+total = MBTI_WEIGHT × mbti
+      + ARCHETYPE_WEIGHT × archetype
+      + VECTOR_WEIGHT × vector
+      + CHARACTER_SPECIFIC_WEIGHT × specific
+```
+
+The four weights are constants defined at the top of `quizEngine.ts`:
+
+| Constant                    | Value  | Component it scales          |
+|-----------------------------|--------|------------------------------|
+| `MBTI_WEIGHT`               | `0.25` | MBTI code match              |
+| `ARCHETYPE_WEIGHT`          | `0.35` | Archetype tendency match     |
+| `VECTOR_WEIGHT`             | `0.3`  | 6D cosine-similarity match   |
+| `CHARACTER_SPECIFIC_WEIGHT` | `0.1`  | Character signature match    |
+
+After the weighted sum is computed, it is multiplied by the character's `matchWeight` field (defaulting to `1` if absent), producing the final `weightedTotal` used for ranking.
+
+## Component 1 — MBTI score
+
+The MBTI component measures how well your dimension percentages align with a character's expected type code.
+
+```typescript
+function scoreFlexibleMbti(
+  character: CharacterMatch,
+  scores: Record<DimensionPair, DimensionScore>,
+): number
+```
+
+Each `CharacterMatch` has a primary `matchCode` (e.g., `"INTJ"`) and an optional `matchCodeFlex` array of acceptable alternative codes. The engine evaluates all of them and takes the highest result:
+
+```typescript
+const codes = [character.matchCode, ...(character.matchCodeFlex ?? [])]
+return codes.reduce((best, code) => Math.max(best, scoreMbti(code, scores)), 0)
+```
+
+For each candidate code, `scoreMbti` loops over the four dimension pairs and adds either your `percentage` (if your dominant letter matches the expected letter) or `100 - percentage` (if it does not). That sum is divided by 400 to produce a value in `[0, 1]`.
+
+<Tip>
+  A character with `matchCodeFlex` entries will score well even when your type drifts into adjacent territory. For example, a character coded `INTJ` with a flex entry of `INFJ` will still rank highly if your T/F dimension percentage is close to 50.
+</Tip>
+
+## Component 2 — Archetype score
+
+The archetype component compares how much your answer pattern accumulated weight toward the character's assigned archetype relative to all other archetypes.
+
+```typescript
+function scoreArchetype(archetypeId: ArchetypeId, archetypeRaw: ArchetypeAccumulator): number
+```
+
+The `archetypeRaw` accumulator holds a running total for each of the eight archetype IDs, built up during the quiz by multiplying each answer by normalized question weights and adding the result to the appropriate bucket. The `scoreArchetype` function min-max normalizes the character's bucket value across all eight buckets:
+
+```typescript
+return (archetypeRaw[archetypeId] - min) / spread
+```
+
+This produces a score in `[0, 1]` where `1` means you accumulated more weight toward this archetype than any other. If all buckets are nearly equal (spread ≤ 0.0001), the function returns a neutral `0.55` for non-negative values and `0.45` for negative ones.
+
+The archetype component carries the largest weight (`0.35`) in the final formula, making it the strongest single predictor of your top character match.
+
+## Component 3 — Vector score
+
+The vector component computes cosine similarity between your accumulated six-dimensional user vector and the character's stored vector, then maps the result from `[-1, 1]` to `[0, 1]`.
+
+```typescript
+function scoreVector(userVector: UserVector, characterVector: CharacterMatch['vector']): number {
+  const cosine = cosineSimilarity(userVector, characterVector)
+  return (cosine + 1) / 2
+}
+```
+
+Cosine similarity measures the angle between the two vectors regardless of their magnitudes, making it robust to varying answer intensities. A result of `1.0` means the vectors point in exactly the same direction; `0.5` means orthogonal; `0.0` means they point in opposite directions.
+
+See [Character Vectors](/scoring/character-vectors) for a full description of the six axes and their archetype reference values.
+
+## Component 4 — Character-specific score
+
+The character-specific component allows individual characters to declare the specific axes or questions that are most central to their identity.
+
+```typescript
+function scoreCharacterSpecific(
+  userVector: UserVector,
+  character: CharacterMatch,
+  answers: number[],
+): number
+```
+
+A character's `signature` field (optional) can contain two sub-fields:
+
+**`signature.uniqueAxes`** — a partial mapping of `DimensionId` to an expected value. When present, the engine scores only those axes using a weighted distance formula instead of full cosine similarity:
+
+```typescript
+// Per-axis: similarity = max(0, 1 - |actual - expected| / 18)
+// axisWeight = max(0.5, |expected|)
+```
+
+**`signature.questionAffinity`** — an array of question-level affinities. Each entry specifies a question ID, an expected response polarity (`'agree'`, `'disagree'`, or `'neutral'`), and an optional weight. When both sub-fields are present, the final score blends them:
+
+```typescript
+return axisScore * 0.45 + affinityScore * 0.55
+```
+
+<Note>
+  If a character has no `signature` at all, the character-specific score falls back to the same cosine similarity used in the vector component, making the two components agree rather than conflict.
+</Note>
+
+## Tie-breaking and leading matches
+
+After all characters are ranked by `weightedTotal`, `collectLeadingMatches` identifies the top cluster:
+
+```typescript
+const CLOSE_MATCH_THRESHOLD = 0.025
+
+function collectLeadingMatches(rankings: RankedCharacter[]) {
+  const leader = rankings[0]
+  const closeMatches = rankings.filter(
+    (item) => leader.total - item.total <= CLOSE_MATCH_THRESHOLD
+  )
+  // ...
+}
+```
+
+Any character within `0.025` of the leader's score is considered a co-leader. The UI uses this cluster — rather than a single winner — to present a set of equally plausible character matches. Within a tie cluster, the engine applies a secondary sort: archetype score first, then vector score, then character-specific score, then alphabetical name order.
+
+## The `matchWeight` multiplier
+
+Each `CharacterMatch` can carry an optional `matchWeight: number` field. This multiplier is applied to the computed `total` after all four components are combined:
+
+```typescript
+const weightedTotal = total * (character.matchWeight ?? 1)
+```
+
+Characters with a `matchWeight` below `1` are effectively penalized in the ranking, and characters above `1` are boosted. This is useful for managing roster balance — for example, suppressing very common archetypes that would otherwise dominate all results — without changing the underlying scoring logic.
+
+## Full pipeline summary
+
+<Steps>
+  <Step title="Build the answer profile">
+    Iterate over all questions, accumulate raw dimension scores, archetype weights, and user vector contributions from each `answer × sign` pair.
+  </Step>
+  <Step title="Normalize dimension scores">
+    Convert raw scores to `[-1, 1]` using directional max tracking, then compute percentage and dominant letter for each of the four dimension pairs.
+  </Step>
+  <Step title="Score each character on four components">
+    For every character: compute MBTI, archetype, vector, and character-specific scores independently.
+  </Step>
+  <Step title="Apply weights and matchWeight">
+    Combine the four scores using the fixed weights, then multiply by `matchWeight`.
+  </Step>
+  <Step title="Sort and collect leading matches">
+    Sort by weighted total descending; collect all characters within `CLOSE_MATCH_THRESHOLD` of the top score as co-leaders.
+  </Step>
+  <Step title="Present results">
+    The top leading match becomes the featured character; up to four leading matches are displayed with their scores and population probabilities.
+  </Step>
+</Steps>

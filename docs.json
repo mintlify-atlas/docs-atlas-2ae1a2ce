@@ -1,122 +1,91 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "ACGTI — ACG Type Indicator",
+  "theme": "almond",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#ff8a5b",
+    "light": "#fff4ef",
+    "dark": "#7b6cff"
   },
-  "favicon": "/favicon.svg",
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/tianxingleo/ACGTI"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/tianxingleo/ACGTI"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Guide",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Get Started",
             "pages": [
-              "index",
-              "quickstart",
-              "development"
+              "introduction",
+              "how-it-works",
+              "quickstart"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Archetypes & Characters",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "archetypes/overview",
+              "archetypes/luminous-lead",
+              "archetypes/icebound-observer",
+              "archetypes/oathbound-captain",
+              "archetypes/trickster-orbit",
+              "archetypes/gentle-healer",
+              "archetypes/shadow-strategist",
+              "archetypes/chaos-spark",
+              "archetypes/moonlit-guardian"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Scoring System",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "scoring/dimensions",
+              "scoring/matching-algorithm",
+              "scoring/character-vectors"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Features",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "features/quiz-experience",
+              "features/result-page",
+              "features/share-poster",
+              "features/character-gallery",
+              "features/i18n"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "Contributing",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Development",
             "pages": [
-              "api-reference/introduction"
+              "contributing/setup",
+              "contributing/project-structure",
+              "contributing/add-character",
+              "contributing/add-questions"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Data Reference",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "contributing/data-schema",
+              "contributing/scripts"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

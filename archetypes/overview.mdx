@@ -1,0 +1,107 @@
+---
+title: "ACGTI Archetype Overview: All 8 Anime Persona Types"
+description: "Meet all eight ACGTI archetypes — from the blazing Luminous Lead to the steadfast Moonlit Guardian — and see which MBTI types map to each role."
+---
+
+The ACG Type Indicator sorts quiz results into eight narrative archetypes drawn from classic anime tropes. Each archetype captures a distinct way of moving through a story — how loudly you speak, how warmly you connect, how tightly you hold to order, and what role you naturally fill when the plot thickens. Whether you burn bright at the front line or keep a quiet watch at the boundary, there is a place in the cast for you.
+
+## The eight archetypes
+
+<CardGroup cols={2}>
+  <Card
+    title="Luminous Lead — 发光主角位"
+    icon="sun"
+    color="#ff8a5b"
+    href="/archetypes/luminous-lead"
+  >
+    The one who lights up the room. High expression, strong forward momentum, emotional engine of the group.
+  </Card>
+  <Card
+    title="Icebound Observer — 冰面观察者"
+    icon="snowflake"
+    color="#64b5f6"
+    href="/archetypes/icebound-observer"
+  >
+    Quiet but watching closely. Low expression, high judgement — the calm analyst who pieces together what others miss.
+  </Card>
+  <Card
+    title="Oathbound Captain — 誓约队长"
+    icon="shield"
+    color="#4db6ac"
+    href="/archetypes/oathbound-captain"
+  >
+    The team's load-bearing wall. High order, strong sense of duty — not the loudest voice but the last one standing.
+  </Card>
+  <Card
+    title="Trickster Orbit — 灵巧回旋者"
+    icon="rotate"
+    color="#f4a261"
+    href="/archetypes/trickster-orbit"
+  >
+    Always finding a new angle. High agency, low order — the wildcard who breaks deadlocks by ignoring the rulebook.
+  </Card>
+  <Card
+    title="Gentle Healer — 温柔修复者"
+    icon="heart"
+    color="#ffafcc"
+    href="/archetypes/gentle-healer"
+  >
+    Stitching the cracks back together. High temperature, strong empathy — the quiet support that keeps everyone else upright.
+  </Card>
+  <Card
+    title="Shadow Strategist — 影面策士"
+    icon="chess"
+    color="#7b6cff"
+    href="/archetypes/shadow-strategist"
+  >
+    Setting the board before the game begins. High aura and judgement — the unseen hand that was three steps ahead all along.
+  </Card>
+  <Card
+    title="Chaos Spark — 混沌火花"
+    icon="bolt"
+    color="#ef476f"
+    href="/archetypes/chaos-spark"
+  >
+    Igniting the scene. Maximum agency, low order — the unpredictable force that makes the story start moving.
+  </Card>
+  <Card
+    title="Moonlit Guardian — 月下守护者"
+    icon="moon"
+    color="#90caf9"
+    href="/archetypes/moonlit-guardian"
+  >
+    Standing quietly at the edge. High order, restrained expression — the background light that never goes out.
+  </Card>
+</CardGroup>
+
+## MBTI-to-archetype mapping
+
+The quiz engine maps each of the 16 MBTI types to one archetype via `TYPE_TO_ARCHETYPE` in `quizEngine.ts`. The table below shows the full mapping.
+
+| Archetype | Narrative role | MBTI types |
+|---|---|---|
+| Luminous Lead | 主角团核心 / 气氛引擎 | ENFJ, ESFJ |
+| Icebound Observer | 军师位 / 冷静旁白 | INTP, ISTP |
+| Oathbound Captain | 队长位 / 编队中轴 | ENTJ, ESTJ |
+| Trickster Orbit | 副主角 / 破局位 | ENTP, ENFP |
+| Gentle Healer | 疗愈位 / 情感中继 | INFJ, ISFJ |
+| Shadow Strategist | 幕后操盘 / 黑箱智囊 | INTJ |
+| Chaos Spark | 转折触发器 / 爆点制造机 | ESTP, ESFP |
+| Moonlit Guardian | 护卫位 / 结界位 | INFP, ISTJ, ISFP |
+
+<Note>
+The quiz blends MBTI scoring with archetype-weighted answers and a six-axis personality vector. Your final result reflects the full weighted calculation, not just your four-letter type.
+</Note>
+
+## How the vector axes work
+
+Every archetype carries a signature profile across six dimensions. These scores shape character matching and result weighting.
+
+| Axis | What it measures |
+|---|---|
+| `expression` | How openly you communicate and take up space |
+| `temperature` | Emotional warmth versus cool detachment |
+| `judgement` | Analytical precision and pattern recognition |
+| `order` | Preference for structure, rules, and stability |
+| `agency` | Drive to act, lead, and initiate |
+| `aura` | Presence, gravity, and the pull you exert on others |

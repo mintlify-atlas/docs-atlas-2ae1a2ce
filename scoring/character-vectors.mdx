@@ -1,0 +1,151 @@
+---
+title: "6D Character Vector System and Cosine Matching"
+description: "How ACGTI encodes personality as a six-dimensional vector, how your quiz answers build a user vector, and how cosine similarity drives character matching."
+---
+
+Every character and every archetype in ACGTI is represented as a point in a six-dimensional space. The six axes capture distinct behavioral and emotional qualities that go beyond the four MBTI letters — they describe *how* a character expresses themselves, not just *which* broad type they belong to. During the quiz, your answers gradually build an equivalent vector that describes you in the same space. At the end, cosine similarity between your vector and each character's vector provides one of the four inputs to the matching formula.
+
+## The six axes
+
+The axes are defined as the `DimensionId` union type in `quiz.ts`:
+
+```typescript
+export type DimensionId =
+  | 'expression'
+  | 'temperature'
+  | 'judgement'
+  | 'order'
+  | 'agency'
+  | 'aura'
+```
+
+| Axis          | What it measures                                              |
+|---------------|---------------------------------------------------------------|
+| `expression`  | Outward expressiveness — how openly a character communicates emotion and intent |
+| `temperature` | Emotional warmth — how welcoming, empathetic, or cold in their relational style |
+| `judgement`   | Decisiveness tendency — how readily they form and act on definitive conclusions |
+| `order`       | Preference for structure and planning versus improvisation    |
+| `agency`      | Proactiveness and drive — how much they initiate action      |
+| `aura`        | Presence and charisma — the ambient influence they project on a scene |
+
+Axis values in archetype and character definitions typically range from **-3 to +3**. A value of `0` is neutral; positive values represent the quality in abundance; negative values represent a deliberate absence or inversion of that quality.
+
+## Archetype reference vectors
+
+Each archetype anchors a region of the six-dimensional space. These reference vectors come directly from `archetypes.json` and are used both to build your user vector during the quiz and as fixed coordinates when scoring character matches.
+
+| Archetype ID          | expression | temperature | judgement | order | agency | aura |
+|-----------------------|-----------|-------------|-----------|-------|--------|------|
+| `luminous-lead`       | 3         | 2           | 1         | 0     | 3      | 1    |
+| `icebound-observer`   | -2        | -2          | 3         | 2     | 1      | 2    |
+| `oathbound-captain`   | 0         | 1           | 2         | 3     | 2      | 1    |
+| `trickster-orbit`     | 2         | 1           | 1         | -1    | 3      | 1    |
+| `gentle-healer`       | 1         | 3           | 1         | 1     | 1      | 0    |
+| `shadow-strategist`   | -1        | -1          | 3         | 2     | 2      | 3    |
+| `chaos-spark`         | 2         | 1           | -1        | -2    | 3      | 2    |
+| `moonlit-guardian`    | -1        | 1           | 2         | 3     | 1      | 2    |
+
+<Tip>
+  Notice that `luminous-lead` and `chaos-spark` both score `3` on `agency`, but they diverge sharply on `order` (`0` vs `-2`) and `temperature` (`2` vs `1`). Characters assigned to these archetypes will cluster near these coordinates in the vector space.
+</Tip>
+
+## How your user vector is built
+
+The user vector accumulates across every question you answer. For each question, the engine:
+
+1. Looks up the question's archetype weight distribution (`weights` field, or a dimension-specific fallback).
+2. Mean-centers and L1-normalizes those weights so they sum to zero and have unit absolute magnitude (`normalizeQuestionWeights`).
+3. For each archetype role with a non-zero normalized weight, multiplies your answer value by that weight to get `weightedAnswer`.
+4. Adds `weightedAnswer × archetype.vector[axis]` to each axis of `userVector`.
+
+```typescript
+const weightedAnswer = answer * value  // value = normalized weight for this role
+for (const axis of VECTOR_AXES) {
+  userVector[axis] += weightedAnswer * archetype.vector[axis]
+}
+```
+
+After all questions are processed, `userVector` is a cumulative sum of archetype-weighted answer contributions across all six axes. Its magnitude grows with the number of questions answered and the strength of your responses.
+
+<Note>
+  The user vector is not normalized before cosine similarity is computed. Cosine similarity is magnitude-invariant by design — only the direction of the vector matters when comparing it to a character's vector.
+</Note>
+
+## Cosine similarity
+
+The vector component of the matching score is computed using cosine similarity:
+
+```typescript
+function cosineSimilarity(
+  left: UserVector,
+  right: CharacterMatch['vector'],
+): number {
+  let dot = 0
+  let leftMagnitude = 0
+  let rightMagnitude = 0
+
+  for (const axis of VECTOR_AXES) {
+    dot += left[axis] * right[axis]
+    leftMagnitude += left[axis] * left[axis]
+    rightMagnitude += right[axis] * right[axis]
+  }
+
+  const denominator = Math.sqrt(leftMagnitude) * Math.sqrt(rightMagnitude)
+  if (!denominator) return 0
+
+  return dot / denominator
+}
+```
+
+The raw result falls in `[-1, 1]`. The engine maps it to `[0, 1]` before using it as the vector component score:
+
+```typescript
+return (cosine + 1) / 2
+```
+
+This means a perfectly aligned vector contributes `1.0`, an orthogonal vector contributes `0.5`, and an opposite vector contributes `0.0`.
+
+## Character signatures
+
+Characters can optionally declare a `signature` object that lets the character-specific scoring component weight certain axes more heavily or link specific quiz questions to their identity.
+
+```typescript
+export interface CharacterMatch {
+  // ...
+  signature?: {
+    uniqueAxes?: Partial<Record<DimensionId, number>>
+    questionAffinity?: Array<{
+      questionId: string
+      expected: 'agree' | 'disagree' | 'neutral'
+      weight?: number
+    }>
+  }
+}
+```
+
+### `signature.uniqueAxes`
+
+When `uniqueAxes` is defined, the character-specific scorer replaces full cosine similarity with a weighted per-axis distance calculation:
+
+```typescript
+const axisWeight = Math.max(0.5, Math.abs(expected))
+const distance = Math.abs(actual - expected)
+const similarity = Math.max(0, 1 - distance / 18)
+weightedScore += similarity * axisWeight
+```
+
+Axes with larger absolute expected values receive proportionally higher weight, reflecting the idea that extreme axis positions are more central to the character's identity. Axes not listed in `uniqueAxes` are ignored entirely for this component.
+
+### `signature.questionAffinity`
+
+`questionAffinity` links specific quiz questions to a character by expected response polarity. For each entry, the engine retrieves your actual answer and evaluates it against the expected polarity:
+
+- `'agree'` — score scales from `0` (strongly disagree) to `1` (strongly agree)
+- `'disagree'` — score scales from `0` (strongly agree) to `1` (strongly disagree)
+- `'neutral'` — score peaks at `1` when the answer is `0` and drops toward `0` at the extremes
+
+When both `uniqueAxes` and `questionAffinity` are present, the final character-specific score blends them `45%` / `55%` in favor of question affinity.
+
+<Warning>
+  Question IDs in `questionAffinity` are expected to follow the format `"q1"`, `"q2"`, etc. The engine parses the numeric suffix to determine the zero-indexed position in the answers array. A `questionId` that does not match this format will be silently skipped.
+</Warning>

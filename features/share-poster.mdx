@@ -1,0 +1,111 @@
+---
+title: "Share Poster: Export Your ACG Identity Card as a PNG"
+description: "How ACGTI exports a shareable PNG identity card using html-to-image — poster contents, lazy mounting, clipboard sharing, and browser compatibility notes."
+---
+
+Once you have your result, ACGTI lets you export it as a self-contained PNG image — your "ACG identity card" — sized and styled for social sharing. The poster is generated entirely in the browser: no server round-trip, no upload, no account required.
+
+## How the export works
+
+The export is powered by the [`html-to-image`](https://github.com/bubkoo/html-to-image) library, which renders a hidden `<SharePoster>` component to a PNG data URL via the browser's Canvas API.
+
+The `useShare` composable (`src/composables/useShare.ts`) encapsulates the full export lifecycle:
+
+```typescript
+// src/composables/useShare.ts
+async function exportPoster(target: HTMLElement | null, result: QuizResult) {
+  if (!target || isExporting.value) return
+
+  isExporting.value = true
+  feedback.value = ''
+
+  try {
+    htmlToImageLoader ??= import('html-to-image')
+    const { toPng } = await htmlToImageLoader
+    const dataUrl = await toPng(target, {
+      cacheBust: true,
+      pixelRatio: 2,
+      backgroundColor: '#ffffff',
+    })
+
+    const link = document.createElement('a')
+    link.href = dataUrl
+    link.download = `acgti-${result.archetype.id}.png`
+    link.click()
+    feedback.value = t('app.common.exportSuccess')
+  } catch {
+    feedback.value = t('app.common.exportFail')
+  } finally {
+    isExporting.value = false
+  }
+}
+```
+
+Key details from this implementation:
+
+- `pixelRatio: 2` produces a 2× retina-resolution image without requiring the user to have a HiDPI display.
+- `cacheBust: true` appends a cache-busting query parameter to embedded image URLs, preventing stale or missing assets in the output.
+- The file is named `acgti-<archetype-id>.png` (e.g., `acgti-shadow-strategist.png`).
+- `html-to-image` is imported lazily — it is only downloaded the first time you click the export button.
+
+## Lazy component mounting
+
+The `<SharePoster>` component is also mounted lazily. It lives in an off-screen `div` positioned at `top: -9999px; left: -9999px` and is only inserted into the DOM on first export. This keeps the initial render lightweight and prevents unnecessary DOM work for users who never export.
+
+```typescript
+// ResultPage.vue
+async function exportPosterImage() {
+  if (!shouldMountPoster.value) {
+    shouldMountPoster.value = true
+    await new Promise<void>((resolve) => setTimeout(resolve, 100))
+  }
+  if (!posterRef.value?.rootEl) return
+  void share.exportPoster(posterRef.value.rootEl, result.value)
+}
+```
+
+## What's in the poster
+
+The exported PNG contains a self-contained summary of your result:
+
+<CardGroup cols={2}>
+  <Card title="Character image" icon="image">
+    The primary matched character's full illustration, sourced from the character's `image` field (WebP or PNG).
+  </Card>
+  <Card title="Character code" icon="hash">
+    Your unique result identifier — the same code shown in the hero section. Share this code so others can look up your exact match.
+  </Card>
+  <Card title="MBTI type" icon="grid-2x2">
+    The four-letter type code (e.g., `ENFP`) computed from your quiz answers.
+  </Card>
+  <Card title="Trait sliders" icon="sliders-horizontal">
+    Visual bars for all four dimensions (Energy, Mind, Nature, Tactics) rendered in the same style as the result page.
+  </Card>
+  <Card title="Archetype name" icon="sparkles">
+    The narrative archetype label (e.g., *Trickster Orbit*) associated with your result.
+  </Card>
+  <Card title="Accent theming" icon="palette">
+    The poster background and accents use the matched character's `accent` hex color, giving each export a distinct look.
+  </Card>
+</CardGroup>
+
+## Sharing your result
+
+Because every ACGTI result is identified by a unique **character code**, you don't need to export a PNG to share it. You can also copy a plain-text share message via the "Copy" button:
+
+```typescript
+async function copyShareText(result: QuizResult) {
+  const text = createShareText(result)
+  await navigator.clipboard.writeText(text)
+}
+```
+
+The copied text includes your code, matched character name and series, rarity tier and rank, population probability, and archetype name — formatted for pasting into chat, social media, or anywhere else.
+
+## Browser compatibility
+
+<Warning>
+The `html-to-image` library depends on `HTMLCanvasElement`, `Blob`, and `navigator.clipboard`, which are standard in all modern browsers. Internet Explorer is not supported. Export may silently fail in some privacy-hardened browsers that block Canvas fingerprinting APIs — the `feedback` ref will display a localized error message in that case.
+</Warning>
+
+Cross-origin images (character art hosted on a different domain) may be blocked by CORS policy and cause the export to fail or produce a canvas with a blank character area. All production character images should be served from the same origin or with permissive CORS headers.

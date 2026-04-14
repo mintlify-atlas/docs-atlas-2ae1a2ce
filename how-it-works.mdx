@@ -1,0 +1,81 @@
+---
+title: "How ACGTI Scores Your Answers and Picks Your Character"
+description: "How ACGTI calculates your character match: dimension scoring, archetype weighting, vector similarity, and near-tie resolution — all computed locally in the browser."
+---
+
+When you finish the quiz, `calculateQuizResult` in `src/utils/quizEngine.ts` runs a multi-stage pipeline entirely in your browser. Each of the 39 questions contributes to four parallel scoring streams at once, and the streams are combined with fixed weights to produce a ranked character list. Here is exactly how that works.
+
+## The five-step pipeline
+
+<Steps>
+  <Step title="Answer collection">
+    Each question presents a scenario and a seven-point Likert scale. Your response is stored as an integer from −3 (strongly disagree / strongly left-leaning) to +3 (strongly agree / strongly right-leaning). Skipped questions are excluded from scoring entirely — they do not drag any dimension toward zero.
+  </Step>
+  <Step title="Dimension scoring">
+    Every question is tagged with one of four MBTI dimension pairs (`E_I`, `S_N`, `T_F`, `J_P`) and a polarity sign (`+1` or `−1`). Your raw score for a dimension is the sum of `answer × sign` across all questions in that dimension. The raw score is then normalized against the maximum possible absolute score for the direction you landed in, producing a value in [−1, +1]. Finally, that value is converted to a percentage:
+
+    ```
+    percentage = round(50 + clamp(|score|, 0, 1) × 50)
+    ```
+
+    So percentages always fall in the **50%–100%** range, where 50% means exactly on the boundary and 100% means maximum lean in one direction.
+  </Step>
+  <Step title="Archetype matching">
+    In parallel with dimension scoring, every question also carries archetype role weights — partial scores for roles like `hero`, `strategist`, `guardian`, `lonewolf`, `healer`, `berserker`, `trickster`, and `ruler`. These weights are mean-centered and L1-normalized before use, so questions with no explicit weights fall back to dimension-level defaults without distorting the scale.
+
+    Each role maps directly to one of the eight archetypes:
+
+    | Role key | Archetype |
+    | --- | --- |
+    | `hero` | Luminous Lead |
+    | `strategist` | Shadow Strategist |
+    | `guardian` | Moonlit Guardian |
+    | `lonewolf` | Icebound Observer |
+    | `healer` | Gentle Healer |
+    | `berserker` | Chaos Spark |
+    | `trickster` | Trickster Orbit |
+    | `ruler` | Oathbound Captain |
+
+    Your running archetype score for each archetype is `Σ (answer × normalized_role_weight)`. The archetype with the highest accumulated score is your matched archetype.
+  </Step>
+  <Step title="Character ranking">
+    Every character in the 42-character library is scored against your full answer profile using four weighted components:
+
+    | Component | Weight | What it measures |
+    | --- | --- | --- |
+    | MBTI match | 25% | How closely your four dominant letters and percentages align with the character's `matchCode` (and any flexible alternates in `matchCodeFlex`) |
+    | Archetype match | 35% | Where the character's archetype falls in your normalized archetype score distribution |
+    | Vector similarity | 30% | Cosine similarity between your accumulated trait vector and the character's six-axis vector (`expression`, `temperature`, `judgement`, `order`, `agency`, `aura`), scaled to [0, 1] |
+    | Character-specific | 10% | Weighted score on any `uniqueAxes` and `questionAffinity` entries the character defines |
+
+    The final score is `total × matchWeight`, where `matchWeight` is a per-character tuning multiplier (defaults to 1.0).
+  </Step>
+  <Step title="Result display">
+    The top-ranked character is your primary result. The result page shows your character code, the four dimension sliders styled after 16personalities, the matched archetype description, and up to three runner-up characters. You can export the full result as a PNG poster.
+  </Step>
+</Steps>
+
+## Dimension details
+
+<AccordionGroup>
+  <Accordion title="E_I — Energy (Extraverted vs. Introverted)">
+    Questions in this dimension measure how you direct your energy and engage with the world around you. A positive raw score means you lean Extraverted (E); a negative score means Introverted (I). Default archetype fallback weights favor `hero` and `trickster` on the E side, and `lonewolf` and `strategist` on the I side.
+  </Accordion>
+  <Accordion title="S_N — Mind (Intuitive vs. Observant)">
+    This dimension captures how you take in information. In ACGTI's labeling, the S letter (left pole) maps to "Intuitive" — abstract patterns and possibilities — while the N letter (right pole) maps to "Observant" — concrete details and lived experience. Archetype defaults weight `strategist` and `trickster` toward S (Intuitive), and `ruler` and `guardian` toward N (Observant).
+  </Accordion>
+  <Accordion title="T_F — Nature (Thinking vs. Feeling)">
+    Nature questions probe whether you prioritize logic and objective criteria (T) or values and interpersonal impact (F). The defaults pull `strategist` and `berserker` toward T, and `healer` and `guardian` toward F.
+  </Accordion>
+  <Accordion title="J_P — Tactics (Judging vs. Prospecting)">
+    Tactics questions measure your preference for structure and closure (J, Judging) versus flexibility and open options (P, Prospecting). Defaults favor `ruler` and `guardian` on the J side, and `trickster` and `berserker` on the P side.
+  </Accordion>
+</AccordionGroup>
+
+## Near-tie handling
+
+When two or more characters score within `0.025` of the top-ranked character, they are all promoted into the "leading matches" group and sorted among themselves using the secondary tiebreaker sequence: archetype score → vector score → character-specific score → character name (zh-Hans-CN locale). This prevents a single borderline question from arbitrarily collapsing a meaningful tie down to one result.
+
+## Privacy by design
+
+The entire computation described above — question parsing, normalization, archetype accumulation, vector math, cosine similarity, character ranking — runs in JavaScript inside your browser tab. No answer data, no scores, and no result identifiers are transmitted to any server. Your last result is written to `localStorage` so you can revisit it without retaking the quiz; clearing your browser data removes it completely.

@@ -1,0 +1,215 @@
+---
+title: "ACGTI Contributor Scripts: Image Pipeline and Data Tools"
+description: "Step-by-step usage guide for every utility script in the ACGTI repo — image conversion, background removal, probability simulation, and data generation."
+---
+
+ACGTI ships a small set of utility scripts that contributors run locally to process character images, regenerate derived data files, and validate the quiz engine. None of these run automatically in CI — you invoke them by hand whenever you add or change a character. This page documents what each script does, when to run it, and exactly how to invoke it.
+
+## Image asset pipeline
+
+Adding a new character requires running three Python scripts in sequence. Together they take a raw PNG, strip the background, convert to WebP, generate a thumbnail, and extract an accent colour.
+
+<Warning>
+  All three Python scripts require `Pillow`. `remove_character_backgrounds.py` additionally requires `numpy`. Install them with `pip install Pillow numpy` before running any image pipeline step.
+</Warning>
+
+### scripts/remove_character_backgrounds.py
+
+This script removes solid-colour backgrounds from character PNGs using a flood-fill algorithm seeded from the image edges. It analyses the edge pixels to build a palette of the most common background colours, then grows a transparency mask inward, handling slight colour variation caused by JPEG compression or anti-aliasing.
+
+**When to run:** Before running the WebP conversion script, on any new character PNG that still has a background. Skip this step if the source image is already transparent.
+
+**Important notes:**
+
+- The script hardcodes `ROOT` to a Windows path (`C:\Users\TX\Documents\...`). Before running, update the `ROOT` variable at the top of the file to point to your local `public/images/characters/` directory.
+- The script overwrites the source PNG in place after backing it up to a `_original-backgrounds/` subfolder. Do not delete that folder until you have verified the output.
+- The flood-fill is tuned for light, low-saturation backgrounds. Dark or heavily textured backgrounds may require manual cleanup in an image editor afterward.
+
+<Steps>
+  <Step title="Update the ROOT path">
+    Open `scripts/remove_character_backgrounds.py` and update the `ROOT` constant to match your local path:
+
+    ```python
+    ROOT = Path("/path/to/ACGTI/public/images/characters")
+    ```
+  </Step>
+  <Step title="Run the script">
+    ```bash
+    python scripts/remove_character_backgrounds.py
+    ```
+
+    The script prints `processed <filename>` for each image it handles.
+  </Step>
+  <Step title="Review the output">
+    Open each processed PNG in an image viewer. If the subject has fringing or missing pixels, restore from `_original-backgrounds/` and touch up the source image manually.
+  </Step>
+</Steps>
+
+---
+
+### scripts/process_character_assets.py
+
+This is the main asset preparation script. It reads every character from `src/data/characters.json`, locates the corresponding source PNG in `public/images/characters/`, removes its background using the same flood-fill algorithm, saves the cleaned PNG to `public/images/characters/transparent/`, and writes a regenerated `src/data/characterVisuals.json` with image paths and auto-extracted accent colours.
+
+**When to run:** After placing a raw (already background-removed) PNG in `public/images/characters/`, any time you add a new character or want to refresh all accent colours.
+
+**Important notes:**
+
+- The script uses `NAME_ALIASES` to map characters whose `name` field in `characters.json` differs from their image filename. If your new character's name includes special characters or a secondary name (e.g. `"若叶睦 / Mortis"`), add an entry to `NAME_ALIASES` at the top of the script.
+- The script overwrites `characterVisuals.json` completely each run. Do not make manual edits to that file unless you immediately commit them, as a subsequent run will discard them.
+- Accent colour extraction samples a 160×160 thumbnail, skips nearly-transparent pixels, and ranks colours by a combined saturation + brightness score. Very desaturated characters may produce a neutral fallback colour.
+
+<Steps>
+  <Step title="Place the source PNG">
+    Copy the character's PNG (background already removed) to `public/images/characters/<角色名>.webp`. The filename must match the character's `name` field in `characters.json`, or must have an entry in `NAME_ALIASES`.
+  </Step>
+  <Step title="Run the script from the repo root">
+    ```bash
+    python scripts/process_character_assets.py
+    ```
+
+    Output: `Processed N character assets.`
+  </Step>
+  <Step title="Verify characterVisuals.json">
+    Open `src/data/characterVisuals.json` and confirm that your new character's entry has correct image paths and a sensible accent colour.
+  </Step>
+</Steps>
+
+---
+
+### scripts/generate_character_webp.py
+
+This script converts all PNG files in `public/images/characters/` to WebP format and generates 400 px-wide thumbnails in the `thumbs/` subdirectory. It uses Pillow's LANCZOS resampling and saves at quality 85 (full) and 80 (thumbnails).
+
+**When to run:** After background removal and asset processing, once you have the final PNGs ready for production. You can also run it standalone if you only need to regenerate WebP files without touching `characterVisuals.json`.
+
+**Important notes:**
+
+- The script operates on `public/images/characters/*.png` only. It does not recurse into subdirectories.
+- Output paths are derived from the source filename: `初音未来.png` → `初音未来.webp` and `thumbs/初音未来.webp`.
+- The script does not delete source PNGs. Both formats coexist in the directory.
+
+<Steps>
+  <Step title="Run the script from the repo root">
+    ```bash
+    python scripts/generate_character_webp.py
+    ```
+
+    The script prints two lines per image: `Full: ...` and `Thumb: ...`.
+  </Step>
+  <Step title="Update characterVisuals.json paths if needed">
+    If `process_character_assets.py` was run separately, the paths in `characterVisuals.json` already point to the WebP files. Otherwise, update the `image` and `thumb` fields manually to reference the `.webp` extensions.
+  </Step>
+</Steps>
+
+---
+
+## Probability simulation
+
+### scripts/probability-simulation.mjs
+
+This script runs the full quiz engine against a large set of randomly generated answer sets and records which character wins each run. The output is a frequency table showing each character's real-world hit rate as a percentage. Results are written to `src/data/characterProbabilities.json`.
+
+**When to run:** After adding or tuning a character, to update the rarity display and verify that the character is actually reachable.
+
+**Important notes:**
+
+- The script uses `tsx` (TypeScript execute) to import `src/utils/quizEngine.ts` directly. Run it with Node.js 18+ and ensure `tsx` or `ts-node` is available.
+- Default: 200,000 runs with seed `20260411`. Larger run counts are more stable but slower.
+- Without `--write`, the script prints results to stdout and does not modify any file. Always review the output before committing.
+- The seed is recorded in `characterProbabilities.json` so the run is reproducible.
+
+<Steps>
+  <Step title="Preview results without writing">
+    ```bash
+    node --import tsx/esm scripts/probability-simulation.mjs
+    ```
+
+    This prints the full probability map to stdout. Use this to check that your new character appears and has a reasonable share.
+  </Step>
+  <Step title="Run with a custom seed or run count">
+    Pass the seed as the first argument and run count as the second:
+
+    ```bash
+    node --import tsx/esm scripts/probability-simulation.mjs 12345 100000
+    ```
+  </Step>
+  <Step title="Write results to characterProbabilities.json">
+    Add `--write` to commit the results to disk:
+
+    ```bash
+    node --import tsx/esm scripts/probability-simulation.mjs --write
+    ```
+
+    Commit `src/data/characterProbabilities.json` alongside your character changes.
+  </Step>
+</Steps>
+
+---
+
+## Audit script
+
+### scripts/audit-reachability.mjs
+
+This script runs a smaller simulation (default 50,000 iterations) using a self-contained reimplementation of the scoring engine and prints a console table showing each character's win count and population share. Unlike `probability-simulation.mjs`, it does not write any files and does not require `tsx`.
+
+**When to run:** As a quick sanity check that a character's vector, archetype, and MBTI code combination can actually win under some realistic answer set. Useful during character tuning before committing.
+
+```bash
+node scripts/audit-reachability.mjs [iterations] [seed]
+```
+
+```bash
+# Example: 10000 iterations with default seed
+node scripts/audit-reachability.mjs 10000
+```
+
+The output is a `console.table` sorted by ascending win count, so characters that never win appear at the top — a useful signal that their scoring parameters need adjustment.
+
+<Tip>
+  If a character shows 0 wins across 50,000 iterations, check that its `matchCode` exists and is spelled correctly, its `archetypeId` matches a real entry in `archetypes.json`, and its `vector` values are not all zero.
+</Tip>
+
+---
+
+## Data generation scripts
+
+These two scripts at the repo root were used during early development to scaffold initial data. They are **not part of the normal contributor workflow** and should not be run on a production checkout, as they will overwrite `src/data/archetypes.json` and `src/data/characters.json` with placeholder content.
+
+### generateData.ts
+
+Generates a starter `archetypes.json` with placeholder entries mapped to the 16 standard MBTI codes, and a matching `characters.json` with one stub character per archetype. Both files are written to `src/data/`.
+
+```bash
+npx tsx generateData.ts
+```
+
+<Warning>
+  Running this script overwrites the production `archetypes.json` and `characters.json` with placeholder data. Only use it to initialise a completely fresh development environment.
+</Warning>
+
+### generateQuestions.ts
+
+Writes a minimal set of 12 Likert questions (three per MBTI dimension) to `src/data/questions.json`. The generated questions use simple A/B option format and have empty `weights` objects.
+
+```bash
+npx tsx generateQuestions.ts
+```
+
+<Warning>
+  Running this script overwrites the production `questions.json`. The generated questions do not include the archetype weight tuning present in the real dataset. Only use this to initialise a blank environment.
+</Warning>
+
+---
+
+## Miscellaneous
+
+### replace.cjs
+
+A one-off patch script that rewrites the share-card block in `src/pages/ResultPage.vue`, replacing an old `<section>` with the current export-image button and `<SharePoster>` layout. It was used during a UI refactor and is not part of any ongoing workflow.
+
+```bash
+node replace.cjs
+```
+
+This script is safe to run repeatedly — it no-ops if the target `<section>` is not found. It is kept in the repo for historical reference.

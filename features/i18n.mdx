@@ -1,0 +1,141 @@
+---
+title: "Internationalization: Four-Locale Support in ACGTI"
+description: "How ACGTI localizes across zh-CN, zh-TW, en, and ja — browser auto-detection, manual locale switching, localStorage persistence, and translation guidance."
+---
+
+ACGTI ships with full internationalization (i18n) support covering four locales. The system is built entirely in TypeScript without a third-party i18n library, using a lightweight composable that handles locale detection, persistence, and string interpolation. All UI copy, character names, series names, and archetype descriptions are translatable.
+
+## Supported locales
+
+| Code | Language | Notes |
+|------|----------|-------|
+| `zh-CN` | Simplified Chinese | Default locale |
+| `zh-TW` | Traditional Chinese | Also used for Hong Kong and Macau |
+| `en` | English | |
+| `ja` | Japanese | |
+
+## Auto-detection
+
+When the app initializes, `initI18n()` determines the locale to use by checking two sources in order:
+
+1. **Stored locale** — reads the value saved in `localStorage` under the key `acgti:locale`.
+2. **Browser language** — iterates `navigator.languages` (falling back to `navigator.language`) and normalizes each candidate against the supported locale list.
+
+If neither source resolves to a supported locale, `zh-CN` is used as the fallback.
+
+```typescript
+// src/i18n/index.ts
+export function initI18n() {
+  currentLocale.value = readStoredLocale() ?? detectSystemLocale() ?? DEFAULT_LOCALE
+  applyDocumentLanguage(currentLocale.value)
+}
+```
+
+`applyDocumentLanguage` sets `document.documentElement.lang` so screen readers and search engines see the correct language attribute.
+
+## Locale normalization
+
+Raw browser locale strings are mapped to one of the four supported codes using the following rules:
+
+```typescript
+function normalizeLocale(input?: string | null): AppLocale | null {
+  if (!input) return null
+  const lower = input.toLowerCase()
+
+  if (lower.startsWith('zh-hk') || lower.startsWith('zh-mo')
+      || lower.startsWith('zh-tw') || lower.includes('hant')) {
+    return 'zh-TW'
+  }
+
+  if (lower.startsWith('zh')) return 'zh-CN'
+  if (lower.startsWith('ja')) return 'ja'
+  if (lower.startsWith('en')) return 'en'
+
+  return null
+}
+```
+
+<Tabs>
+  <Tab title="Simplified Chinese">
+    Any `zh-*` tag not covered by a more specific rule — including `zh`, `zh-Hans`, `zh-SG` — maps to `zh-CN`.
+  </Tab>
+  <Tab title="Traditional Chinese">
+    `zh-HK`, `zh-MO`, `zh-TW`, and any tag containing `hant` (e.g., `zh-Hant-HK`) map to `zh-TW`.
+  </Tab>
+  <Tab title="Japanese">
+    Any tag starting with `ja` — including `ja-JP` — maps to `ja`.
+  </Tab>
+  <Tab title="English">
+    Any tag starting with `en` — including `en-US`, `en-GB`, `en-AU` — maps to `en`.
+  </Tab>
+</Tabs>
+
+## Manual locale switching
+
+Users can switch the locale at any time using the language selector in the app UI. Under the hood, this calls `setLocale()`:
+
+```typescript
+// src/i18n/index.ts
+export function setLocale(locale: AppLocale) {
+  currentLocale.value = locale
+  applyDocumentLanguage(locale)
+
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem(STORAGE_KEY, locale)  // key: 'acgti:locale'
+  }
+}
+```
+
+The selected locale is persisted to `localStorage` under the key `acgti:locale`. On the next page load, `readStoredLocale()` reads this value and restores the user's preference before the first render.
+
+## The `useI18n()` composable
+
+All components access translations through the `useI18n()` composable exported from `src/i18n/index.ts`:
+
+```typescript
+const { locale, t, tm, setLocale } = useI18n()
+```
+
+| Function | Signature | Purpose |
+|---|---|---|
+| `t()` | `t(key, params?, defaultVal?)` | Translate a string key with optional `{param}` interpolation. Falls back to `zh-CN` if the key is missing in the active locale, then to `defaultVal`, then to the raw key. |
+| `tm()` | `tm<T>(key)` | Translate a key that resolves to a non-string value (array, object). Useful for lists of steps, dimension labels, etc. |
+| `setLocale()` | `setLocale(locale: AppLocale)` | Switch the active locale and persist it. |
+| `getLocale()` | `getLocale()` | Return the current `AppLocale` value (usable outside of Vue components). |
+| `locale` | `Readonly<Ref<AppLocale>>` | Reactive reference to the current locale, suitable for use in templates. |
+
+### String interpolation
+
+`t()` supports `{variable}` placeholders:
+
+```typescript
+t('quiz.progressHint', { answered: 12, total: 39 })
+// → "12 / 39 answered"
+```
+
+## File organization
+
+Translations are split into two files:
+
+- **`src/i18n/messages.ts`** — all UI strings: navigation labels, quiz copy, result labels, archetype descriptions, error messages, and share text templates.
+- **`src/i18n/characters.ts`** — character and series names, plus helpers (`getLocalizedCharacterName`, `getLocalizedCharacterSeries`, `getHiddenCharacterNote`, `getHiddenCharacterTags`, `getHiddenCharacterTitle`) that return the correct string for the active locale.
+
+## Contributing translations
+
+When you add a new character or archetype, you must provide translations for **all four locales** before the pull request can be merged.
+
+<Steps>
+  <Step title="Add entries in messages.ts">
+    Add your new key to the `zh-CN` block first (the source of truth), then add the same key with translated values to the `zh-TW`, `en`, and `ja` blocks.
+  </Step>
+  <Step title="Add character strings in characters.ts">
+    Register the character's localized name and series using the character's `id` as the key. Provide values for all four locales.
+  </Step>
+  <Step title="Verify fallback behavior">
+    Run the app in each locale and confirm that no raw key strings (`characters.my-character.name`) appear in the UI. The `t()` function falls back to `zh-CN` if a key is missing, but a complete translation is required for merge.
+  </Step>
+</Steps>
+
+<Warning>
+Omitting a locale from `characters.ts` does not cause a build error — the app silently falls back to `zh-CN`. Always check all four locales manually or in CI before submitting a PR that adds new translatable content.
+</Warning>

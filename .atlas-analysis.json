@@ -1,0 +1,106 @@
+{
+  "projectType": "saas",
+  "projectName": "ACGTI — ACG Type Indicator",
+  "projectDescription": "A pure-frontend, privacy-first MBTI-inspired anime persona quiz that matches users to one of 42 ACG characters across 8 personality archetypes.",
+  "theme": "almond",
+  "primaryColor": "#ff8a5b",
+  "lightColor": "#fff4ef",
+  "darkColor": "#7b6cff",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Guide",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "how-it-works",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Archetypes & Characters",
+            "pages": [
+              "archetypes/overview",
+              "archetypes/luminous-lead",
+              "archetypes/icebound-observer",
+              "archetypes/oathbound-captain",
+              "archetypes/trickster-orbit",
+              "archetypes/gentle-healer",
+              "archetypes/shadow-strategist",
+              "archetypes/chaos-spark",
+              "archetypes/moonlit-guardian"
+            ]
+          },
+          {
+            "group": "Scoring System",
+            "pages": [
+              "scoring/dimensions",
+              "scoring/matching-algorithm",
+              "scoring/character-vectors"
+            ]
+          },
+          {
+            "group": "Features",
+            "pages": [
+              "features/quiz-experience",
+              "features/result-page",
+              "features/share-poster",
+              "features/character-gallery",
+              "features/i18n"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Contributing",
+        "groups": [
+          {
+            "group": "Development",
+            "pages": [
+              "contributing/setup",
+              "contributing/project-structure",
+              "contributing/add-character",
+              "contributing/add-questions"
+            ]
+          },
+          {
+            "group": "Data Reference",
+            "pages": [
+              "contributing/data-schema",
+              "contributing/scripts"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "39-question scenario-based quiz with 7-point Likert scale answers",
+    "8 distinct ACG personality archetypes mapped from 16 MBTI types",
+    "42 character library spanning VOCALOID, EVA, Genshin Impact, MyGO, and more",
+    "16personalities-style interactive trait sliders on the result page",
+    "One-click PNG poster export for social sharing",
+    "Pure frontend architecture — no backend, no registration, no data collection",
+    "Multi-language support: zh-CN, zh-TW, English, Japanese",
+    "Deployed on Cloudflare Pages with GitHub Actions CI"
+  ],
+  "publicApiSurface": [
+    "calculateQuizResult({ answers, questions, archetypes, characters })",
+    "buildScoresFromMbtiCode(mbtiCode, percentages?)",
+    "resolveArchetypeForMbti(mbtiCode, archetypes)",
+    "rankCharactersForMbti({ characters, mbtiCode, preferredCharacterId? })",
+    "createDebugQuizResult({ characterId, archetypes, characters })",
+    "normalizeMbtiCode(mbtiCode)",
+    "useQuiz() composable — ensureData, finalizeQuiz, resetQuiz, goNext, goPrev, jumpToQuestion",
+    "useShare() composable — share poster export",
+    "useI18n() — t(), tm(), setLocale(), getLocale()",
+    "TRAIT_CONFIG — dimension label and color configuration",
+    "src/data/questions.json — 39 scenario questions with dimension + archetype weights",
+    "src/data/archetypes.json — 8 archetype definitions with vector and metadata",
+    "src/data/characters.json — 42 character entries with matchCode, vector, tags",
+    "src/data/characterVisuals.json — image paths and accent colors per character",
+    "src/data/characterProbabilities.json — population hit-rate per character"
+  ]
+}

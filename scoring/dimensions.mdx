@@ -1,0 +1,85 @@
+---
+title: "ACGTI Personality Dimensions and Role Groups"
+description: "How ACGTI maps quiz answers onto four MBTI-style dimension pairs — Energy, Mind, Nature, and Tactics — and organizes the 16 types into four role groups."
+---
+
+Every ACGTI result is built from four independent axes of personality, each one capturing a different aspect of how a person engages with the world. These axes mirror the MBTI framework but are tuned for anime archetypes: the labels, colors, and scoring logic all come from the `TRAIT_CONFIG` object in `quizEngine.ts`. Each question you answer contributes a weighted score to exactly one of these dimensions, and the final percentage on each axis determines your four-letter type code.
+
+## The four dimension pairs
+
+Each dimension pair describes a spectrum between two poles. Your score on a dimension tells you which pole you lean toward and how strongly. A score of exactly 50% means you're balanced between the two; anything above reflects increasing alignment with the left pole, and anything below reflects the right.
+
+| Key   | Label   | Left pole   | Right pole   | Color     |
+|-------|---------|-------------|--------------|-----------|
+| `E_I` | Energy  | Extraverted | Introverted  | `#9b59b6` |
+| `S_N` | Mind    | Intuitive   | Observant    | `#3498db` |
+| `T_F` | Nature  | Thinking    | Feeling      | `#e74c3c` |
+| `J_P` | Tactics | Judging     | Prospecting  | `#f39c12` |
+
+<AccordionGroup>
+  <Accordion title="Energy (E_I) — how you direct and replenish your energy">
+    Extraverted characters draw energy from social interaction and shared action. They thrive in the front row, pushing the scene forward. Introverted characters are deliberate and self-contained, processing internally before engaging. A high Extraverted score correlates with archetypes like `luminous-lead` and `chaos-spark`; a high Introverted score aligns with `icebound-observer` and `shadow-strategist`.
+  </Accordion>
+  <Accordion title="Mind (S_N) — how you process information">
+    Intuitive characters favor abstract reasoning, pattern recognition, and possibilities over concrete facts. Observant characters ground their thinking in what is directly present — sensory detail, established method, and practical outcome. The `S_N` axis is one of the strongest predictors of archetype assignment, with `strategist` and `trickster` weighting heavily toward Intuitive.
+  </Accordion>
+  <Accordion title="Nature (T_F) — how you make decisions">
+    Thinking characters evaluate situations through logic and objective criteria; Feeling characters weight interpersonal impact and shared values. This dimension maps cleanly to the `T_F` quiz weight table: `strategist` and `ruler` roles pull toward Thinking, while `healer` and `guardian` roles pull toward Feeling.
+  </Accordion>
+  <Accordion title="Tactics (J_P) — how you approach structure">
+    Judging characters prefer decided plans, structured environments, and settled commitments. Prospecting characters favor flexibility, improvisation, and keeping options open. `ruler` and `guardian` roles score heavily on the Judging side; `trickster` and `berserker` roles push toward Prospecting.
+  </Accordion>
+</AccordionGroup>
+
+## How a question contributes to a dimension
+
+Every `Question` object carries two scoring fields: `dimension` (which of the four pairs it affects) and `sign` (either `1` or `-1`).
+
+```typescript
+export interface Question {
+  id: string
+  dimension: DimensionPair   // 'E_I' | 'S_N' | 'T_F' | 'J_P'
+  sign: 1 | -1               // which pole a positive answer favors
+  weights?: Partial<Record<QuestionArchetypeWeightId, number>>
+  // ...
+}
+```
+
+When you answer a question with a value in the range `[-3, +3]`, the engine adds `answer × sign` to the running raw score for that dimension. A `sign` of `1` means a strongly-agree answer (`+3`) moves you toward the left pole (e.g., Extraverted); a `sign` of `-1` means the same answer moves you toward the right pole (e.g., Introverted).
+
+The engine also tracks the maximum possible score in each direction separately so that uneven question distributions don't distort the final percentage.
+
+## How the percentage is calculated
+
+After all answers are collected, `buildAnswerProfile` normalizes each dimension's raw score:
+
+```typescript
+const score = normalizeDimensionScore(rawScores[dimension], directionalMaxScores[dimension])
+const intensity = Math.min(1, Math.abs(score))
+const percentage = Math.round(50 + (intensity * 50))
+```
+
+The result always falls in the **50%–100%** range. A value of 50% means a perfectly neutral answer pattern on that dimension. A value of 100% means every answer pointed maximally toward the dominant pole. The dominant letter (`E` vs `I`, `S` vs `N`, etc.) is determined by the sign of the normalized score before the intensity calculation.
+
+<Note>
+  Percentages below 50% are never displayed. The engine represents direction through the dominant letter and shows intensity through how far the percentage rises above 50.
+</Note>
+
+## Role groups
+
+The 16 type codes are organized into four role groups. These groups appear on the results screen and help you understand the broader personality territory your type belongs to.
+
+<CardGroup cols={2}>
+  <Card title="Analysts" icon="brain">
+    **INTJ, INTP, ENTJ, ENTP** — Imaginative and strategic thinkers with a plan for everything. Analysts combine Intuitive and Thinking preferences to produce systematic, big-picture reasoning.
+  </Card>
+  <Card title="Diplomats" icon="heart">
+    **INFJ, INFP, ENFJ, ENFP** — Empathetic and principled, with a deep concern for others. Diplomats combine Intuitive and Feeling preferences to navigate the human side of every situation.
+  </Card>
+  <Card title="Sentinels" icon="shield">
+    **ISTJ, ISFJ, ESTJ, ESFJ** — Cooperative and practical, bringing stability and order. Sentinels combine Observant and Judging preferences to maintain structure and dependability.
+  </Card>
+  <Card title="Explorers" icon="compass">
+    **ISTP, ISFP, ESTP, ESFP** — Utilitarian, practical, and spontaneous, shining in situations that require quick reaction. Explorers combine Observant and Prospecting preferences for immediate, adaptive action.
+  </Card>
+</CardGroup>
